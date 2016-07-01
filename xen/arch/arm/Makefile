@@ -1,6 +1,7 @@
 subdir-$(CONFIG_ARM_32) += arm32
 subdir-$(CONFIG_ARM_64) += arm64
 subdir-y += platforms
+subdir-$(CONFIG_OPTEE) += optee
 subdir-$(CONFIG_ARM_64) += efi
 subdir-$(CONFIG_ACPI) += acpi
 

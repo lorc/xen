@@ -48,6 +48,11 @@
 #include <asm/gic.h>
 #include <asm/vgic.h>
 
+#ifdef CONFIG_OPTEE
+#include "optee/optee.h"
+#include "optee/optee_smc.h"
+#endif
+
 /* The base of the stack must always be double-word aligned, which means
  * that both the kernel half of struct cpu_user_regs (which is pushed in
  * entry.S) and struct cpu_info (which lives at the bottom of a Xen
@@ -1655,6 +1660,31 @@ static void advance_pc(struct cpu_user_regs *regs, const union hsr hsr)
     regs->pc += hsr.len ? 4 : 2;
 }
 
+static void do_trap_smc(struct cpu_user_regs *regs, const union hsr hsr)
+{
+#ifdef CONFIG_OPTEE
+	uint32_t smc_code = regs->r0;
+
+	/* Only dom0 can issue SMC call for now */
+	if (current->domain->domain_id != 0)
+		goto err;
+
+	/* Check if this call is to OPTEE */
+	if (OPTEE_SMC_OWNER_NUM(smc_code) >= OPTEE_SMC_OWNER_TRUSTED_APP &&
+	    OPTEE_SMC_OWNER_NUM(smc_code) <= OPTEE_SMC_OWNER_TRUSTED_OS_API) {
+		if (optee_handle_smc(regs)) {
+			goto err;
+		} else {
+			advance_pc(regs, hsr);
+			return;
+		}
+	}
+#endif
+err:
+	inject_undef64_exception(regs, hsr.len);
+	return;
+}
+
 /* Read as zero and write ignore */
 static void handle_raz_wi(struct cpu_user_regs *regs,
                           int regidx,
@@ -2614,7 +2644,7 @@ asmlinkage void do_trap_hypervisor(struct cpu_user_regs *regs)
          */
         GUEST_BUG_ON(psr_mode_is_32bit(regs->cpsr));
         perfc_incr(trap_smc64);
-        inject_undef64_exception(regs, hsr.len);
+        do_trap_smc(regs, hsr);
         break;
     case HSR_EC_SYSREG:
         GUEST_BUG_ON(psr_mode_is_32bit(regs->cpsr));

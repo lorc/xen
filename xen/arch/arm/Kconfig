@@ -42,6 +42,14 @@ config ACPI
 	  Advanced Configuration and Power Interface (ACPI) support for Xen is
 	  an alternative to device tree on ARM64.
 
+config OPTEE
+	bool
+	prompt "OPTEE virtualization support"
+	depends on ARM_64
+	---help---
+
+          Open Platform Trusted Execution Environment support.
+
 # Select HAS_GICV3 if GICv3 is supported
 config HAS_GICV3
 	bool
