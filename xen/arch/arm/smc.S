@@ -19,3 +19,19 @@
 ENTRY(call_smc)
         smc   #0
         ret
+
+
+#ifdef CONFIG_ARM_64
+/*
+ * void call_smc_ext(register_t a0, register_t a1, register_t a2,
+ *	  	     register_t a3, register_t a4, register_t a5,
+		     register_t a6, register_t a7, register_t res[4])
+ */
+ENTRY(call_smc_ext)
+	smc	#0
+	ldr	x4, [sp]
+	stp	x0, x1, [x4, #0]
+	stp	x2, x3, [x4, #16]
+	ret
+ENDPROC(call_smc_ext)
+#endif

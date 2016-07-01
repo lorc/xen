@@ -647,6 +647,12 @@ void vcpu_regs_user_to_hyp(struct vcpu *vcpu,
 int call_smc(register_t function_id, register_t arg0, register_t arg1,
              register_t arg2);
 
+#ifdef CONFIG_ARM_64
+void call_smc_ext(register_t a0, register_t a1, register_t a2,
+                  register_t a3, register_t a4, register_t a5,
+                  register_t a6, register_t a7, register_t res[4]);
+#endif
+
 #endif /* __ASSEMBLY__ */
 #endif /* __ASM_ARM_PROCESSOR_H */
 /*
