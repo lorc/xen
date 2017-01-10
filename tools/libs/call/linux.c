@@ -65,7 +65,8 @@ int osdep_xencall_close(xencall_handle *xcall)
 
 int osdep_hypercall(xencall_handle *xcall, privcmd_hypercall_t *hypercall)
 {
-    return ioctl(xcall->fd, IOCTL_PRIVCMD_HYPERCALL, hypercall);
+    int ret = ioctl(xcall->fd, IOCTL_PRIVCMD_HYPERCALL, hypercall);
+    return ret;
 }
 
 void *osdep_alloc_pages(xencall_handle *xcall, size_t npages)

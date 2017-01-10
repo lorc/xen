@@ -210,6 +210,8 @@ ifeq ($(debug_symbols),y)
 CFLAGS += -g
 endif
 
+CFLAGS += -ggdb
+
 CFLAGS += -fno-strict-aliasing
 
 CFLAGS += -std=gnu99

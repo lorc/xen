@@ -75,6 +75,7 @@ libxl_domain_type = Enumeration("domain_type", [
     (-1, "INVALID"),
     (1, "HVM"),
     (2, "PV"),
+    (3, "APP"),
     ], init_val = "LIBXL_DOMAIN_TYPE_INVALID")
 
 libxl_rdm_reserve_strategy = Enumeration("rdm_reserve_strategy", [
@@ -551,6 +552,15 @@ libxl_domain_build_info = Struct("domain_build_info",[
                                        ("rdm_mem_boundary_memkb", MemKB),
                                        ])),
                  ("pv", Struct(None, [("kernel", string),
+                                      ("slack_memkb", MemKB),
+                                      ("bootloader", string),
+                                      ("bootloader_args", libxl_string_list),
+                                      ("cmdline", string),
+                                      ("ramdisk", string),
+                                      ("features", string, {'const': True}),
+                                      # Use host's E820 for PCI passthrough.
+                                      ("e820_host", libxl_defbool)])),
+                 ("app", Struct(None, [("kernel", string),
                                       ("slack_memkb", MemKB),
                                       ("bootloader", string),
                                       ("bootloader_args", libxl_string_list),

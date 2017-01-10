@@ -301,7 +301,7 @@ int libxl__build_pre(libxl__gc *gc, uint32_t domid,
     libxl_domain_build_info *const info = &d_config->b_info;
     libxl_ctx *ctx = libxl__gc_owner(gc);
     char *xs_domid, *con_domid;
-    int rc;
+    int rc = 0;
     uint64_t size;
 
     if (xc_domain_max_vcpus(ctx->xch, domid, info->max_vcpus) != 0) {
@@ -793,10 +793,12 @@ static int hvm_build_set_params(xc_interface *handle, uint32_t domid,
     uint64_t str_mfn, cons_mfn;
     int i;
 
-    if (info->device_model_version != LIBXL_DEVICE_MODEL_VERSION_NONE) {
+    if (info->device_model_version != LIBXL_DEVICE_MODEL_VERSION_NONE &&
+        info->type != LIBXL_DOMAIN_TYPE_APP) {
         va_map = xc_map_foreign_range(handle, domid,
                                       XC_PAGE_SIZE, PROT_READ | PROT_WRITE,
                                       HVM_INFO_PFN);
+
         if (va_map == NULL)
             return ERROR_FAIL;
 
@@ -1150,6 +1152,88 @@ int libxl__build_hvm(libxl__gc *gc, uint32_t domid,
                                             dom->nr_vnodes);
         for (i = 0; i < dom->nr_vnodes; i++)
             dom->vnode_to_pnode[i] = info->vnuma_nodes[i].pnode;
+    }
+
+    rc = libxl__build_dom(gc, domid, info, state, dom);
+    if (rc != 0)
+        goto out;
+
+    rc = libxl__arch_domain_construct_memmap(gc, d_config, domid, dom);
+    if (rc != 0) {
+        LOG(ERROR, "setting domain memory map failed");
+        goto out;
+    }
+
+    rc = hvm_build_set_params(ctx->xch, domid, info, state->store_port,
+                               &state->store_mfn, state->console_port,
+                               &state->console_mfn, state->store_domid,
+                               state->console_domid);
+    if (rc != 0) {
+        LOG(ERROR, "hvm build set params failed");
+        goto out;
+    }
+
+    rc = hvm_build_set_xs_values(gc, domid, dom, info);
+    if (rc != 0) {
+        LOG(ERROR, "hvm build set xenstore values failed");
+        goto out;
+    }
+
+    xc_dom_release(dom);
+    return 0;
+
+out:
+    assert(rc != 0);
+    if (dom != NULL) xc_dom_release(dom);
+    return rc;
+}
+
+int libxl__build_app(libxl__gc *gc, uint32_t domid,
+              libxl_domain_config *d_config,
+              libxl__domain_build_state *state)
+{
+    libxl_ctx *ctx = libxl__gc_owner(gc);
+    int rc;
+    uint64_t lowmem_end, highmem_end, mem_size;
+    libxl_domain_build_info *const info = &d_config->b_info;
+    struct xc_dom_image *dom = NULL;
+    bool device_model =
+        info->device_model_version != LIBXL_DEVICE_MODEL_VERSION_NONE ?
+        true : false;
+
+    xc_dom_loginit(ctx->xch);
+    dom = xc_dom_allocate(ctx->xch, info->cmdline, NULL);
+    if (!dom) {
+        LOGE(ERROR, "xc_dom_allocate failed");
+        rc = ERROR_NOMEM;
+        goto out;
+    }
+
+    dom->container_type = XC_DOM_APP_CONTAINER;
+
+    /* The params from the configuration file are in Mb, which are then
+     * multiplied by 1 Kb. This was then divided off when calling
+     * the old xc_hvm_build_target_mem() which then turned them to bytes.
+     * Do all this in one step here...
+     */
+    mem_size = (uint64_t)(info->max_memkb - info->video_memkb) << 10;
+    dom->target_pages = (uint64_t)(info->target_memkb - info->video_memkb) >> 2;
+    dom->claim_enabled = libxl_defbool_val(info->claim_mode);
+    if (dom->target_pages == 0)
+        dom->target_pages = mem_size >> XC_PAGE_SHIFT;
+
+    lowmem_end = mem_size;
+    highmem_end = 0;
+    dom->lowmem_end = lowmem_end;
+    dom->highmem_end = highmem_end;
+    dom->mmio_start = 0;
+    dom->vga_hole_size = 0;
+    dom->device_model = device_model;
+
+    rc = xc_dom_kernel_file(dom, info->kernel);
+    if ( rc != 0) {
+        LOGE(ERROR, "xc_dom_kernel_file failed");
+        goto out;
     }
 
     rc = libxl__build_dom(gc, domid, info, state, dom);

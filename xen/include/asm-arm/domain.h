@@ -319,6 +319,7 @@ static inline void free_vcpu_guest_context(struct vcpu_guest_context *vgc)
 
 static inline void arch_vcpu_block(struct vcpu *v) {}
 
+void call_el0_app(struct vcpu *v, unsigned long entry);
 #endif /* __ASM_DOMAIN_H__ */
 
 /*

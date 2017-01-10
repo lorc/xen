@@ -102,6 +102,7 @@
 #define LIBXL_MAXMEM_CONSTANT 1024
 #define LIBXL_PV_EXTRA_MEMORY 1024
 #define LIBXL_HVM_EXTRA_MEMORY 2048
+#define LIBXL_APP_EXTRA_MEMORY 2048
 #define LIBXL_MIN_DOM0_MEM (128*1024)
 #define LIBXL_INVALID_GFN (~(uint64_t)0)
 #define LIBXL_VGA_HOLE_SIZE 0x20
@@ -1129,6 +1130,9 @@ _hidden int libxl__build_post(libxl__gc *gc, uint32_t domid,
 _hidden int libxl__build_pv(libxl__gc *gc, uint32_t domid,
              libxl_domain_build_info *info, libxl__domain_build_state *state);
 _hidden int libxl__build_hvm(libxl__gc *gc, uint32_t domid,
+              libxl_domain_config *d_config,
+              libxl__domain_build_state *state);
+_hidden int libxl__build_app(libxl__gc *gc, uint32_t domid,
               libxl_domain_config *d_config,
               libxl__domain_build_state *state);
 

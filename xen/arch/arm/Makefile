@@ -38,6 +38,7 @@ obj-y += shutdown.o
 obj-y += smc.o
 obj-y += smp.o
 obj-y += smpboot.o
+obj-y += syscall.o
 obj-y += sysctl.o
 obj-y += time.o
 obj-y += traps.o

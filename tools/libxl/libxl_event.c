@@ -1867,6 +1867,7 @@ void libxl__ao_complete(libxl__egc *egc, libxl__ao *ao, int rc)
 {
     AO_GC;
     LOG(DEBUG,"ao %p: complete, rc=%d",ao,rc);
+
     assert(ao->magic == LIBXL__AO_MAGIC);
     assert(!ao->complete);
     assert(!ao->nested_root);

@@ -1372,6 +1372,10 @@ static void parse_config_data(const char *config_source,
         !strncmp(buf, "hvm", strlen(buf)))
         c_info->type = LIBXL_DOMAIN_TYPE_HVM;
 
+    if (!xlu_cfg_get_string (config, "builder", &buf, 0) &&
+        !strncmp(buf, "app", strlen(buf)))
+        c_info->type = LIBXL_DOMAIN_TYPE_APP;
+
     xlu_cfg_get_defbool(config, "pvh", &c_info->pvh, 0);
     xlu_cfg_get_defbool(config, "hap", &c_info->hap, 0);
 
@@ -1728,6 +1732,11 @@ static void parse_config_data(const char *config_source,
 
         break;
     }
+    case LIBXL_DOMAIN_TYPE_APP:
+    {
+        break;
+    }
+
     default:
         abort();
     }
@@ -3110,15 +3119,16 @@ start:
     }
     LOG("Waiting for domain %s (domid %u) to die [pid %ld]",
         d_config.c_info.name, domid, (long)getpid());
-
+    fprintf(stderr,"%s:%d %s\n", __FILE__, __LINE__, "***");
     ret = libxl_evenable_domain_death(ctx, domid, 0, &deathw);
     if (ret) goto out;
-
+    fprintf(stderr,"%s:%d %s\n", __FILE__, __LINE__, "***");
     if (!diskws) {
         diskws = xmalloc(sizeof(*diskws) * d_config.num_disks);
         for (i = 0; i < d_config.num_disks; i++)
             diskws[i] = NULL;
     }
+    fprintf(stderr,"%s:%d %s\n", __FILE__, __LINE__, "***");
     for (i = 0; i < d_config.num_disks; i++) {
         if (d_config.disks[i].removable) {
             ret = libxl_evenable_disk_eject(ctx, domid, d_config.disks[i].vdev,
@@ -3130,7 +3140,6 @@ start:
         libxl_event *event;
         ret = domain_wait_event(domid, &event);
         if (ret) goto out;
-
         switch (event->type) {
 
         case LIBXL_EVENT_TYPE_DOMAIN_SHUTDOWN:

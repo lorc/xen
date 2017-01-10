@@ -196,6 +196,7 @@ struct xc_dom_image {
     enum {
         XC_DOM_PV_CONTAINER,
         XC_DOM_HVM_CONTAINER,
+        XC_DOM_APP_CONTAINER,
     } container_type;
 
     /* HVM specific fields. */

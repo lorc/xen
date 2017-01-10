@@ -922,7 +922,8 @@ int libxl__arch_domain_init_hw_description(libxl__gc *gc,
     int rc;
     uint64_t val;
 
-    assert(info->type == LIBXL_DOMAIN_TYPE_PV);
+    assert(info->type == LIBXL_DOMAIN_TYPE_PV
+        || info->type == LIBXL_DOMAIN_TYPE_APP);
 
     /* Set the value of domain param HVM_PARAM_CALLBACK_IRQ. */
     val = MASK_INSR(HVM_PARAM_CALLBACK_TYPE_PPI,
@@ -936,24 +937,27 @@ int libxl__arch_domain_init_hw_description(libxl__gc *gc,
     if (rc)
         return rc;
 
-    rc = libxl__prepare_dtb(gc, info, state, dom);
-    if (rc) goto out;
+    if (info->type != LIBXL_DOMAIN_TYPE_APP) {
+        rc = libxl__prepare_dtb(gc, info, state, dom);
+        if (rc) goto out;
 
-    if (!libxl_defbool_val(info->acpi)) {
-        LOG(DEBUG, "Generating ACPI tables is disabled by user.");
+        if (!libxl_defbool_val(info->acpi)) {
+            LOG(DEBUG, "Generating ACPI tables is disabled by user.");
+            rc = 0;
+            goto out;
+        }
+
+        if (strcmp(dom->guest_type, "xen-3.0-aarch64")) {
+            /* ACPI is only supported for 64-bit guest currently. */
+            LOG(ERROR, "Can not enable libxl option 'acpi' for %s", dom->guest_type);
+            rc = ERROR_FAIL;
+            goto out;
+        }
+
+        rc = libxl__prepare_acpi(gc, info, dom);
+    }
+    else
         rc = 0;
-        goto out;
-    }
-
-    if (strcmp(dom->guest_type, "xen-3.0-aarch64")) {
-        /* ACPI is only supported for 64-bit guest currently. */
-        LOG(ERROR, "Can not enable libxl option 'acpi' for %s", dom->guest_type);
-        rc = ERROR_FAIL;
-        goto out;
-    }
-
-    rc = libxl__prepare_acpi(gc, info, dom);
-
 out:
     return rc;
 }
@@ -994,6 +998,8 @@ int libxl__arch_domain_finalise_hw_description(libxl__gc *gc,
     const struct xc_dom_seg *ramdisk = dom->ramdisk_blob ?
         &dom->ramdisk_seg : NULL;
 
+    if (fdt == NULL)
+        return 0;
     if (ramdisk) {
         int chosen, res;
         uint64_t val;

@@ -10,6 +10,8 @@
  * GNU General Public License for more details.
  */
 #include <xen/config.h>
+#include <xen/console.h>
+#include <xen/domain_page.h>
 #include <xen/hypercall.h>
 #include <xen/init.h>
 #include <xen/lib.h>
@@ -25,6 +27,7 @@
 #include <asm/event.h>
 #include <asm/guest_access.h>
 #include <asm/regs.h>
+#include <asm/page.h>
 #include <asm/p2m.h>
 #include <asm/irq.h>
 #include <asm/cpufeature.h>
@@ -71,6 +74,10 @@ static void ctxt_switch_from(struct vcpu *p)
      */
     if ( is_idle_vcpu(p) )
         return;
+
+    if (READ_SYSREG(HCR_EL2) & HCR_TGE) {
+        WRITE_SYSREG(READ_SYSREG(HCR_EL2) & ~(HCR_TGE), HCR_EL2);
+    }
 
     p2m_save_state(p);
 
@@ -141,7 +148,8 @@ static void ctxt_switch_from(struct vcpu *p)
     vfp_save_state(p);
 
     /* VGIC */
-    gic_save_state(p);
+    if (p->domain->guest_type != guest_type_el0)
+        gic_save_state(p);
 
     isb();
 }
@@ -154,13 +162,17 @@ static void ctxt_switch_to(struct vcpu *n)
     if ( is_idle_vcpu(n) )
         return;
 
+    if (n->domain->guest_type == guest_type_el0) {
+        WRITE_SYSREG((READ_SYSREG(HCR_EL2) | HCR_TGE) , HCR_EL2);
+    }
     p2m_restore_state(n);
 
     WRITE_SYSREG32(n->domain->arch.vpidr, VPIDR_EL2);
     WRITE_SYSREG(n->arch.vmpidr, VMPIDR_EL2);
 
     /* VGIC */
-    gic_restore_state(n);
+    if (n->domain->guest_type != guest_type_el0)
+        gic_restore_state(n);
 
     /* VFP */
     vfp_restore_state(n);
@@ -951,6 +963,103 @@ unsigned int domain_max_vcpus(const struct domain *d)
     else
         return min_t(unsigned int, MAX_VIRT_CPUS,
                      d->arch.vgic.handler->max_vcpus);
+}
+
+
+int create_vm_11_mapping(struct domain *d, gfn_t gfn)
+{
+    struct page_info *pages;
+    unsigned long order = 1;
+    void *tbl_va;
+    lpae_t *tbl;
+    unsigned long addr = 0x0;
+    static bool done = false;
+
+    if (done)
+        return 0;
+
+    pages = alloc_domheap_pages(d, order, 0);
+    if (!pages) {
+        printk("Can't alloc pages for VM\n");
+        return -1;
+    }
+
+    guest_physmap_add_entry(d, gfn, _mfn(page_to_mfn(pages)), order, p2m_ram_rw);
+    tbl_va = __map_domain_page(pages);
+    if (!tbl_va) {
+        printk("Can't map pages\n");
+        return -1;
+    }
+
+    tbl = tbl_va;
+
+    for (int i = 0; i < 64; i++) {
+        tbl[i].bits = 0;
+        tbl[i].pt.base = addr;
+        tbl[i].pt.valid = 1;
+        tbl[i].pt.sh = 2;
+        addr += GB(1);
+    }
+
+    done = true;
+
+    return 0;
+}
+
+#define EL1_TTBR 0xA0000000
+
+static struct vcpu *prev_vcpu;
+static volatile bool second_time = false;
+void call_el0_app(struct vcpu *v, unsigned long entry)
+{
+    vcpu_pause_nosync(current);
+    local_irq_disable();
+    create_vm_11_mapping(v->domain, _gfn(EL1_TTBR));
+    v->arch.saved_context.sp = (register_t)v->arch.cpu_info;
+    v->arch.saved_context.pc = (register_t)continue_new_vcpu;
+    entry += 0x40000000;
+//    printk("entry = %lx\n", entry);
+    v->arch.cpu_info->guest_cpu_user_regs.pc = entry;
+    v->arch.cpu_info->guest_cpu_user_regs.cpsr &= ~0xF;
+    v->arch.cpu_info->guest_cpu_user_regs.sp_el0 = 0x40201000;
+    v->arch.cpu_info->guest_cpu_user_regs.sp_el1 = 0x40201000;
+    v->arch.ttbcr = TCR_T0SZ(64-44) | TCR_IRGN0_WBWA | TCR_ORGN0_WBWA | TCR_SH0_IS | TCR_TG0_4K;
+    v->arch.mair = 0x70;
+    v->arch.ttbr0 = EL1_TTBR;
+    ctxt_switch_from(current);
+    prev_vcpu = current;
+    WRITE_SYSREG((READ_SYSREG(HCR_EL2) | HCR_TGE) , HCR_EL2);
+    p2m_restore_state(v);
+    ctxt_switch_to(v);
+//    printk("jumping to entry point\n");
+
+    set_current(v);
+    second_time = false;
+    __save_context(prev_vcpu);
+    if (second_time) {
+//        printk("Returning\n");
+        return;
+    }
+    second_time = true;
+    switch_stack_and_jump(v->arch.cpu_info, return_to_new_vcpu64);
+}
+
+void return_from_el0_app(struct vcpu *v, unsigned long code)
+{
+//    printk("EL0 return code %lx\n", code);
+//    current = __context_switch(current, prev_vcpu);
+
+    ctxt_switch_from(current);
+    set_current(prev_vcpu);
+    local_irq_disable();
+    ctxt_switch_to(current);
+    local_irq_enable();
+    vcpu_unpause(prev_vcpu);
+    __return_to_context(prev_vcpu);
+
+    /* vcpu_yield(); */
+//    idle_loop();
+//    wait();
 }
 
 /*

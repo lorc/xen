@@ -28,10 +28,12 @@
 #include <xen/mm.h>
 #include <xen/errno.h>
 #include <xen/hypercall.h>
+#include <xen/syscall.h>
 #include <xen/softirq.h>
 #include <xen/domain_page.h>
 #include <xen/perfc.h>
 #include <xen/virtual_region.h>
+#include <xen/guest_access.h>
 #include <public/sched.h>
 #include <public/xen.h>
 #include <asm/debugger.h>
@@ -1286,6 +1288,17 @@ static arm_hypercall_t arm_hypercall_table[] = {
     HYPERCALL(vm_assist, 2),
 };
 
+#define SYSCALL(_name, _nr_args)                                   \
+    [ __SYSCALL_ ## _name ] =  {                                  \
+        .fn = (arm_hypercall_fn_t) &do_ ## _name,                    \
+        .nr_args = _nr_args,                                         \
+    }
+
+static arm_hypercall_t arm_syscall_table[] = {
+    SYSCALL(app_exit, 1),
+    SYSCALL(app_console, 2),
+};
+
 #ifndef NDEBUG
 static void do_debug_trap(struct cpu_user_regs *regs, unsigned int code)
 {
@@ -1458,7 +1471,8 @@ static void do_trap_hypercall(struct cpu_user_regs *regs, register_t *nr,
 #endif
 
     BUILD_BUG_ON(NR_hypercalls < ARRAY_SIZE(arm_hypercall_table) );
-
+    /* if (current->domain->domain_id > 0) */
+    /*     domain_crash_synchronous(); */
     if ( iss != XEN_HYPERCALL_TAG )
         domain_crash_synchronous();
 
@@ -2520,6 +2534,8 @@ static void do_trap_data_abort_guest(struct cpu_user_regs *regs,
      */
     if ( dabt.eat )
         domain_crash_synchronous();
+    if (current->domain->guest_type == guest_type_el0)
+        domain_crash_synchronous();
 
     info.dabt = dabt;
 #ifdef CONFIG_ARM_32
@@ -2591,6 +2607,22 @@ static void do_trap_data_abort_guest(struct cpu_user_regs *regs,
     inject_dabt_exception(regs, info.gva, hsr.len);
 }
 
+static void el0_handle_smc(void)
+{
+    struct domain *d;
+    struct vcpu   *v;
+    for_each_domain ( d )
+    {
+        if (d->guest_type == guest_type_el0) {
+//            printk("Found APP domain: %u\n", d->domain_id);
+            for_each_vcpu ( d, v )
+            {
+                call_el0_app(v, 0x74);
+            }
+        }
+    }
+}
+
 static void do_trap_smc(struct cpu_user_regs *regs, const union hsr hsr)
 {
     int rc = 0;
@@ -2598,8 +2630,11 @@ static void do_trap_smc(struct cpu_user_regs *regs, const union hsr hsr)
     if ( current->domain->arch.monitor.privileged_call_enabled )
         rc = monitor_smc();
 
-    if ( rc != 1 )
-        inject_undef_exception(regs, hsr);
+    if ( rc != 1 ) {
+        advance_pc(regs, hsr);
+        el0_handle_smc();
+    }
+    else el0_handle_smc();
 }
 
 static void enter_hypervisor_head(struct cpu_user_regs *regs)
@@ -2608,11 +2643,35 @@ static void enter_hypervisor_head(struct cpu_user_regs *regs)
         gic_clear_lrs(current);
 }
 
+
+void do_trap_syscall(struct cpu_user_regs *regs,  register_t *nr, const union hsr hsr)
+{
+    arm_hypercall_fn_t call = NULL;
+
+    if ( *nr >= ARRAY_SIZE(arm_syscall_table) )
+    {
+        HYPERCALL_RESULT_REG(regs) = -ENOSYS;
+        return;
+    }
+
+    call = arm_syscall_table[*nr].fn;
+    if ( call == NULL )
+    {
+        HYPERCALL_RESULT_REG(regs) = -ENOSYS;
+        return;
+    }
+
+    HYPERCALL_RESULT_REG(regs) = call(HYPERCALL_ARGS(regs));
+}
+
 asmlinkage void do_trap_hypervisor(struct cpu_user_regs *regs)
 {
     const union hsr hsr = { .bits = READ_SYSREG32(ESR_EL2) };
-
     enter_hypervisor_head(regs);
+    /* if ((READ_SYSREG(HCR_EL2) & (HCR_VM)) == 0) { */
+    /*     printk("Setting VM bit\n"); */
+    /*     WRITE_SYSREG(READ_SYSREG(HCR_EL2) | (HCR_VM), HCR_EL2); */
+    /* } */
 
     switch (hsr.ec) {
     case HSR_EC_WFI_WFE:
@@ -2691,6 +2750,9 @@ asmlinkage void do_trap_hypervisor(struct cpu_user_regs *regs)
         do_trap_hypercall(regs, (register_t *)&regs->r12, hsr.iss);
         break;
 #ifdef CONFIG_ARM_64
+    case HSR_EC_SVC64:
+        do_trap_syscall(regs, (register_t *)&regs->x8, hsr);
+        break;
     case HSR_EC_HVC64:
         GUEST_BUG_ON(psr_mode_is_32bit(regs->cpsr));
         perfc_incr(trap_hvc64);
@@ -2739,6 +2801,7 @@ asmlinkage void do_trap_hypervisor(struct cpu_user_regs *regs)
                hsr.bits, hsr.ec, hsr.len, hsr.iss);
         do_unexpected_trap("Hypervisor", regs);
     }
+
 }
 
 asmlinkage void do_trap_guest_error(struct cpu_user_regs *regs)
@@ -2770,11 +2833,14 @@ asmlinkage void do_trap_fiq(struct cpu_user_regs *regs)
 
 asmlinkage void leave_hypervisor_tail(void)
 {
+    if (current->domain->guest_type == guest_type_el0)
+        return;
     while (1)
     {
         local_irq_disable();
         if (!softirq_pending(smp_processor_id())) {
-            gic_inject();
+            if (current->domain->domain_id == 0)
+                gic_inject();
             return;
         }
         local_irq_enable();

@@ -78,6 +78,8 @@ static char *xc_dom_guest_type(struct xc_dom_image *dom,
         }
     case EM_X86_64:
         return "xen-3.0-x86_64";
+    case EM_AARCH64:
+        return "xen-3.0-aarch64";
     default:
         return "xen-3.0-unknown";
     }
@@ -224,7 +226,6 @@ static elf_errorstatus xc_dom_load_elf_kernel(struct xc_dom_image *dom)
     return 0;
 }
 
-/* ------------------------------------------------------------------------ */
 
 struct xc_dom_loader elf_loader = {
     .name = "ELF-generic",
@@ -233,9 +234,111 @@ struct xc_dom_loader elf_loader = {
     .loader = xc_dom_load_elf_kernel,
 };
 
+/* -------------------------------------------------------------------- ---- */
+
+static elf_negerrnoval xc_dom_probe_elf_app(struct xc_dom_image *dom)
+{
+    struct elf_binary elf;
+    int rc;
+    printf("blob = %p, size = %zi\n", dom->kernel_blob, dom->kernel_size);
+    if ( !elf_is_elfbinary(dom->kernel_blob, dom->kernel_size) )
+    {
+        xc_dom_panic(dom->xch,
+                     XC_INVALID_KERNEL, "%s: kernel is not an ELF image",
+                     __FUNCTION__);
+        return -EINVAL;
+    }
+
+    rc = elf_init(&elf, dom->kernel_blob, dom->kernel_size);
+    if ( rc != 0 )
+        return rc;
+
+    /*
+     * We need to check that it contains Xen ELFNOTES,
+     * or else we might be trying to load a plain ELF.
+     */
+    elf_parse_binary(&elf);
+    /* rc = elf_xen_parse(&elf, &dom->parms); */
+    /* if ( rc != 0 ) */
+    /*     return rc; */
+
+    return 0;
+}
+
+static elf_errorstatus xc_dom_parse_elf_app(struct xc_dom_image *dom)
+{
+    struct elf_binary *elf;
+    elf_errorstatus rc;
+
+    rc = check_elf_kernel(dom, 1);
+    if ( rc != 0 )
+        return rc;
+
+    elf = xc_dom_malloc(dom, sizeof(*elf));
+    if ( elf == NULL )
+        return -1;
+    dom->private_loader = elf;
+    rc = elf_init(elf, dom->kernel_blob, dom->kernel_size);
+    xc_elf_set_logfile(dom->xch, elf, 1);
+    if ( rc != 0 )
+    {
+        xc_dom_panic(dom->xch, XC_INVALID_KERNEL, "%s: corrupted ELF image",
+                     __FUNCTION__);
+        return rc;
+    }
+
+    /* Find the section-header strings table. */
+    if ( ELF_PTRVAL_INVALID(elf->sec_strtab) )
+    {
+        xc_dom_panic(dom->xch, XC_INVALID_KERNEL, "%s: ELF image"
+                     " has no shstrtab", __FUNCTION__);
+        rc = -EINVAL;
+        goto out;
+    }
+
+    /* parse binary and get xen meta info */
+    elf_parse_binary(elf);
+    if ( (rc = elf_xen_parse(elf, &dom->parms)) != 0 )
+    {
+        goto out;
+    }
+
+    if ( elf_xen_feature_get(XENFEAT_dom0, dom->parms.f_required) )
+    {
+        xc_dom_panic(dom->xch, XC_INVALID_KERNEL, "%s: Kernel does not"
+                     " support unprivileged (DomU) operation", __FUNCTION__);
+        rc = -EINVAL;
+        goto out;
+    }
+
+    /* find kernel segment */
+    dom->kernel_seg.vstart = dom->parms.virt_kstart;
+    dom->kernel_seg.vend   = dom->parms.virt_kend;
+
+    dom->guest_type = xc_dom_guest_type(dom, elf);
+    DOMPRINTF("%s: %s: 0x%" PRIx64 " -> 0x%" PRIx64 "",
+              __FUNCTION__, dom->guest_type,
+              dom->kernel_seg.vstart, dom->kernel_seg.vend);
+    rc = 0;
+out:
+    if ( elf_check_broken(elf) )
+        DOMPRINTF("%s: ELF broken: %s", __FUNCTION__,
+                  elf_check_broken(elf));
+
+    return rc;
+}
+
+struct xc_dom_loader elf_app_loader = {
+    .name = "ELF-app",
+    .probe = xc_dom_probe_elf_app,
+    .parser = xc_dom_parse_elf_app,
+    .loader = xc_dom_load_elf_kernel,
+};
+
 static void __init register_loader(void)
 {
     xc_dom_register_loader(&elf_loader);
+    xc_dom_register_loader(&elf_app_loader);
 }
 
 /*

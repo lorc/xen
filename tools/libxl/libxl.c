@@ -342,6 +342,7 @@ void libxl_defbool_setdefault(libxl_defbool *db, bool b)
 
 bool libxl_defbool_val(libxl_defbool db)
 {
+    printf("libxl_defbool_val: %p\n",  __builtin_return_address(0));
     assert(!libxl_defbool_is_default(db));
     return db.val > 0;
 }
@@ -4455,6 +4456,11 @@ int libxl_domain_need_memory(libxl_ctx *ctx,
         break;
     case LIBXL_DOMAIN_TYPE_PV:
         *need_memkb += b_info->shadow_memkb + LIBXL_PV_EXTRA_MEMORY;
+        break;
+    case LIBXL_DOMAIN_TYPE_APP:
+        *need_memkb += b_info->shadow_memkb + LIBXL_APP_EXTRA_MEMORY;
+        if (libxl_defbool_val(b_info->device_model_stubdomain))
+            *need_memkb += 32 * 1024;
         break;
     default:
         rc = ERROR_INVAL;

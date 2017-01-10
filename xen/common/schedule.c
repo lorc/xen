@@ -222,7 +222,7 @@ static void sched_spin_unlock_double(spinlock_t *lock1, spinlock_t *lock2,
     spin_unlock_irqrestore(lock1, flags);
 }
 
-int sched_init_vcpu(struct vcpu *v, unsigned int processor) 
+int sched_init_vcpu(struct vcpu *v, unsigned int processor)
 {
     struct domain *d = v->domain;
 
@@ -235,6 +235,9 @@ int sched_init_vcpu(struct vcpu *v, unsigned int processor)
         cpumask_copy(v->cpu_hard_affinity, cpumask_of(processor));
     else
         cpumask_setall(v->cpu_hard_affinity);
+
+    /* if (v->domain->guest_type == guest_type_el0) */
+    /*     return 0; */
 
     cpumask_setall(v->cpu_soft_affinity);
 
@@ -410,7 +413,8 @@ void vcpu_sleep_nosync(struct vcpu *v)
     spinlock_t *lock;
 
     TRACE_2D(TRC_SCHED_SLEEP, v->domain->domain_id, v->vcpu_id);
-
+    if (v->domain->guest_type == guest_type_el0)
+        return;
     lock = vcpu_schedule_lock_irqsave(v, &flags);
 
     if ( likely(!vcpu_runnable(v)) )
@@ -787,6 +791,9 @@ static int vcpu_set_affinity(
 {
     spinlock_t *lock;
     int ret = 0;
+
+    if (v->domain->guest_type == guest_type_el0)
+        return 0;
 
     lock = vcpu_schedule_lock_irq(v);
 

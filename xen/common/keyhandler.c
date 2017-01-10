@@ -23,7 +23,7 @@
 
 static unsigned char keypress_key;
 static bool_t alt_key_handling;
-
+static void test_el0(unsigned char key);
 static keyhandler_fn_t show_handlers, dump_hwdom_registers,
     dump_domains, read_clocks;
 static irq_keyhandler_fn_t do_toggle_alt_key, dump_registers,
@@ -52,6 +52,7 @@ static struct keyhandler {
     IRQ_KEYHANDLER('d', dump_registers, "dump registers", 1),
         KEYHANDLER('h', show_handlers, "show this message", 0),
         KEYHANDLER('q', dump_domains, "dump domain (and guest debug) info", 1),
+        KEYHANDLER('z', test_el0, "try to execute code in app domain", 1),
         KEYHANDLER('r', dump_runq, "dump run queues", 1),
     IRQ_KEYHANDLER('R', reboot_machine, "reboot machine", 0),
         KEYHANDLER('t', read_clocks, "display multi-cpu clock info", 1),
@@ -277,6 +278,25 @@ static void periodic_timer_print(char *str, int size, uint64_t period)
     snprintf(str, size,
              "%u Hz periodic timer (period %u ms)",
              1000000000/(int)period, (int)period/1000000);
+}
+
+static void test_el0(unsigned char key)
+{
+    struct domain *d;
+    struct vcpu   *v;
+    for_each_domain ( d )
+    {
+        if (d->guest_type == guest_type_el0) {
+            printk("Found APP domain: %u\n", d->domain_id);
+            for_each_vcpu ( d, v )
+            {
+                printk("  vcpu info\n");
+                printk("  saved_context.pc = %lX\n", v->arch.saved_context.pc);
+                vcpu_show_execution_state(v);
+                call_el0_app(v, 0x80);
+            }
+        }
+    }
 }
 
 static void dump_domains(unsigned char key)

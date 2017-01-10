@@ -35,7 +35,7 @@ int libxl__domain_create_info_setdefault(libxl__gc *gc,
         return ERROR_INVAL;
     }
 
-    if (c_info->type == LIBXL_DOMAIN_TYPE_HVM) {
+    if (c_info->type == LIBXL_DOMAIN_TYPE_HVM || c_info->type == LIBXL_DOMAIN_TYPE_APP) {
         libxl_defbool_setdefault(&c_info->hap, true);
         libxl_defbool_setdefault(&c_info->oos, true);
     } else {
@@ -68,7 +68,8 @@ int libxl__domain_build_info_setdefault(libxl__gc *gc,
     int i;
 
     if (b_info->type != LIBXL_DOMAIN_TYPE_HVM &&
-        b_info->type != LIBXL_DOMAIN_TYPE_PV) {
+        b_info->type != LIBXL_DOMAIN_TYPE_PV &&
+        b_info->type != LIBXL_DOMAIN_TYPE_APP) {
         LOG(ERROR, "invalid domain type");
         return ERROR_INVAL;
     }
@@ -403,6 +404,8 @@ int libxl__domain_build_info_setdefault(libxl__gc *gc,
             b_info->u.pv.cmdline = NULL;
         }
         break;
+    case LIBXL_DOMAIN_TYPE_APP:
+        break;
     default:
         LOG(ERROR, "invalid domain type %s in create info",
             libxl_domain_type_to_string(b_info->type));
@@ -434,6 +437,7 @@ int libxl__domain_build(libxl__gc *gc,
     int i, ret;
 
     ret = libxl__build_pre(gc, domid, d_config, state);
+
     if (ret)
         goto out;
 
@@ -499,6 +503,20 @@ int libxl__domain_build(libxl__gc *gc,
         }
 
         break;
+    case LIBXL_DOMAIN_TYPE_APP:
+        ret = libxl__build_app(gc, domid, d_config, state);
+        if (ret)
+            goto out;
+
+        vments = libxl__calloc(gc, 7, sizeof(char *));
+        vments[0] = "rtc/timeoffset";
+        vments[1] = (info->u.hvm.timeoffset) ? info->u.hvm.timeoffset : "";
+        vments[2] = "image/ostype";
+        vments[3] = "app";
+        vments[4] = "start_time";
+        vments[5] = GCSPRINTF("%lu.%02d", start_time.tv_sec,(int)start_time.tv_usec/10000);
+
+        break;
     default:
         ret = ERROR_INVAL;
         goto out;
@@ -536,6 +554,10 @@ int libxl__domain_make(libxl__gc *gc, libxl_domain_config *d_config,
         flags |= XEN_DOMCTL_CDF_hvm_guest;
         flags |= libxl_defbool_val(info->hap) ? XEN_DOMCTL_CDF_hap : 0;
         flags |= libxl_defbool_val(info->oos) ? 0 : XEN_DOMCTL_CDF_oos_off;
+    } else if (info->type == LIBXL_DOMAIN_TYPE_APP) {
+        flags |= XEN_DOMCTL_CDF_app_domain;
+        flags |= libxl_defbool_val(info->hap) ? XEN_DOMCTL_CDF_hap : 0;
+        flags |= libxl_defbool_val(info->oos) ? 0 : XEN_DOMCTL_CDF_oos_off;
     } else if (libxl_defbool_val(info->pvh)) {
         flags |= XEN_DOMCTL_CDF_pvh_guest;
         if (!libxl_defbool_val(info->hap)) {
@@ -567,9 +589,11 @@ int libxl__domain_make(libxl__gc *gc, libxl_domain_config *d_config,
         }
     }
 
-    rc = libxl__arch_domain_save_config(gc, d_config, xc_config);
-    if (rc < 0)
-        goto out;
+    if (info->type != LIBXL_DOMAIN_TYPE_APP) {
+        rc = libxl__arch_domain_save_config(gc, d_config, xc_config);
+        if (rc < 0)
+            goto out;
+    }
 
     ret = xc_cpupool_movedomain(ctx->xch, info->poolid, *domid);
     if (ret < 0) {
@@ -1396,6 +1420,9 @@ static void domcreate_launch_dm(libxl__egc *egc, libxl__multidev *multidev,
             return;
         }
     }
+    case LIBXL_DOMAIN_TYPE_APP:
+        domcreate_devmodel_started(egc, &dcs->sdss.dm, 0);
+        return;
     default:
         ret = ERROR_INVAL;
         goto error_out;
