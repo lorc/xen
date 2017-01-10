@@ -305,7 +305,8 @@ struct evtchn_port_ops;
  * will be false, but has_hvm_container_* checks will be true.
  */
 enum guest_type {
-    guest_type_pv, guest_type_pvh, guest_type_hvm
+    guest_type_pv, guest_type_pvh, guest_type_hvm,
+    guest_type_el0
 };
 
 struct domain
@@ -380,6 +381,8 @@ struct domain
     bool_t           is_privileged;
     /* Is this a xenstore domain (not dom0)? */
     bool_t           is_xenstore;
+    /* Is this an app domain (not dom0)? */
+    bool_t           is_app;
     /* Domain's VCPUs are pinned 1:1 to physical CPUs? */
     bool_t           is_pinned;
     /* Non-migratable and non-restoreable? */
@@ -554,6 +557,9 @@ struct domain *domain_create(domid_t domid, unsigned int domcr_flags,
  /* DOMCRF_xs_domain: xenstore domain */
 #define _DOMCRF_xs_domain       6
 #define DOMCRF_xs_domain        (1U<<_DOMCRF_xs_domain)
+ /* DOMCRF_el0: Create EL0 application */
+#define _DOMCRF_el0             7
+#define DOMCRF_el0              (1U<<_DOMCRF_el0)
 
 /*
  * rcu_lock_domain_by_id() is more efficient than get_domain_by_id().

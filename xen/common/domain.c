@@ -307,6 +307,8 @@ struct domain *domain_create(domid_t domid, unsigned int domcr_flags,
         d->guest_type = guest_type_hvm;
     else if ( domcr_flags & DOMCRF_pvh )
         d->guest_type = guest_type_pvh;
+    else if ( domcr_flags & DOMCRF_el0 )
+        d->guest_type = guest_type_el0;
     else
         d->guest_type = guest_type_pv;
 
@@ -323,6 +325,12 @@ struct domain *domain_create(domid_t domid, unsigned int domcr_flags,
     if ( domcr_flags & DOMCRF_xs_domain )
     {
         d->is_xenstore = 1;
+        d->disable_migrate = 1;
+    }
+
+    if ( domcr_flags & DOMCRF_el0 )
+    {
+        d->is_app = 1;
         d->disable_migrate = 1;
     }
 

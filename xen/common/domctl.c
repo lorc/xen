@@ -198,6 +198,9 @@ void getdomaininfo(struct domain *d, struct xen_domctl_getdomaininfo *info)
     case guest_type_pvh:
         info->flags |= XEN_DOMINF_pvh_guest;
         break;
+    case guest_type_el0:
+        info->flags |= XEN_DOMINF_el0;
+        break;
     default:
         break;
     }
@@ -550,6 +553,8 @@ long do_domctl(XEN_GUEST_HANDLE_PARAM(xen_domctl_t) u_domctl)
             domcr_flags |= DOMCRF_oos_off;
         if ( op->u.createdomain.flags & XEN_DOMCTL_CDF_xs_domain )
             domcr_flags |= DOMCRF_xs_domain;
+        if ( op->u.createdomain.flags & XEN_DOMCTL_CDF_app_domain )
+            domcr_flags |= DOMCRF_el0;
 
         d = domain_create(dom, domcr_flags, op->u.createdomain.ssidref,
                           &op->u.createdomain.config);

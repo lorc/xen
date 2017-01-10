@@ -536,6 +536,10 @@ int libxl__domain_make(libxl__gc *gc, libxl_domain_config *d_config,
         flags |= XEN_DOMCTL_CDF_hvm_guest;
         flags |= libxl_defbool_val(info->hap) ? XEN_DOMCTL_CDF_hap : 0;
         flags |= libxl_defbool_val(info->oos) ? 0 : XEN_DOMCTL_CDF_oos_off;
+    } else if (info->type == LIBXL_DOMAIN_TYPE_APP) {
+        flags |= XEN_DOMCTL_CDF_app_domain;
+        flags |= libxl_defbool_val(info->hap) ? XEN_DOMCTL_CDF_hap : 0;
+        flags |= libxl_defbool_val(info->oos) ? 0 : XEN_DOMCTL_CDF_oos_off;
     } else if (libxl_defbool_val(info->pvh)) {
         flags |= XEN_DOMCTL_CDF_pvh_guest;
         if (!libxl_defbool_val(info->hap)) {
