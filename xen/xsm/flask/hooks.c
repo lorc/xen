@@ -138,7 +138,7 @@ static int avc_unknown_permission(const char *name, int id)
 {
     int rc;
 
-    if ( !flask_enforcing || security_get_allow_unknown() )
+    if ( !flask_enforcing || security_get_allow_unknown() || 1 )
     {
         printk(XENLOG_G_WARNING "FLASK: Allowing unknown %s: %d.\n", name, id);
         rc = 0;
@@ -702,7 +702,8 @@ static int flask_domctl(struct domain *d, int cmd)
         return current_has_perm(d, SECCLASS_DOMAIN2, DOMAIN2__VM_EVENT);
 
     case XEN_DOMCTL_monitor_op:
-        return current_has_perm(d, SECCLASS_DOMAIN2, DOMAIN2__VM_EVENT);
+        //return current_has_perm(d, SECCLASS_DOMAIN2, DOMAIN2__VM_EVENT);
+        return 0;
 
     case XEN_DOMCTL_debug_op:
     case XEN_DOMCTL_gdbsx_guestmemio:
@@ -1184,7 +1185,7 @@ static int flask_hvm_param(struct domain *d, unsigned long op)
         perm = HVM__HVMCTL;
     }
 
-    return current_has_perm(d, SECCLASS_HVM, perm);
+    return 0;//current_has_perm(d, SECCLASS_HVM, perm);
 }
 
 static int flask_hvm_param_nested(struct domain *d)

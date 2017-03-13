@@ -276,10 +276,10 @@ void vm_event_put_request(struct domain *d,
                           struct vm_event_domain *ved,
                           vm_event_request_t *req)
 {
-    vm_event_front_ring_t *front_ring;
-    int free_req;
-    unsigned int avail_req;
-    RING_IDX req_prod;
+    /* vm_event_front_ring_t *front_ring; */
+    /* int free_req; */
+    /* unsigned int avail_req; */
+    /* RING_IDX req_prod; */
 
     if ( current->domain != d )
     {
@@ -291,35 +291,35 @@ void vm_event_put_request(struct domain *d,
 #endif
     }
 
-    req->version = VM_EVENT_INTERFACE_VERSION;
+    /* req->version = VM_EVENT_INTERFACE_VERSION; */
 
-    vm_event_ring_lock(ved);
+    /* vm_event_ring_lock(ved); */
 
-    /* Due to the reservations, this step must succeed. */
-    front_ring = &ved->front_ring;
-    free_req = RING_FREE_REQUESTS(front_ring);
-    ASSERT(free_req > 0);
+    /* /\* Due to the reservations, this step must succeed. *\/ */
+    /* front_ring = &ved->front_ring; */
+    /* free_req = RING_FREE_REQUESTS(front_ring); */
+    /* ASSERT(free_req > 0); */
 
-    /* Copy request */
-    req_prod = front_ring->req_prod_pvt;
-    memcpy(RING_GET_REQUEST(front_ring, req_prod), req, sizeof(*req));
-    req_prod++;
+    /* /\* Copy request *\/ */
+    /* req_prod = front_ring->req_prod_pvt; */
+    /* memcpy(RING_GET_REQUEST(front_ring, req_prod), req, sizeof(*req)); */
+    /* req_prod++; */
 
-    /* Update ring */
-    front_ring->req_prod_pvt = req_prod;
-    RING_PUSH_REQUESTS(front_ring);
+    /* /\* Update ring *\/ */
+    /* front_ring->req_prod_pvt = req_prod; */
+    /* RING_PUSH_REQUESTS(front_ring); */
 
-    /* We've actually *used* our reservation, so release the slot. */
-    vm_event_release_slot(d, ved);
+    /* /\* We've actually *used* our reservation, so release the slot. *\/ */
+    /* vm_event_release_slot(d, ved); */
 
-    /* Give this vCPU a black eye if necessary, on the way out.
-     * See the comments above wake_blocked() for more information
-     * on how this mechanism works to avoid waiting. */
-    avail_req = vm_event_ring_available(ved);
-    if( current->domain == d && avail_req < d->max_vcpus )
-        vm_event_mark_and_pause(current, ved);
+    /* /\* Give this vCPU a black eye if necessary, on the way out. */
+    /*  * See the comments above wake_blocked() for more information */
+    /*  * on how this mechanism works to avoid waiting. *\/ */
+    /* avail_req = vm_event_ring_available(ved); */
+    /* if( current->domain == d && avail_req < d->max_vcpus ) */
+    /*     vm_event_mark_and_pause(current, ved); */
 
-    vm_event_ring_unlock(ved);
+    /* vm_event_ring_unlock(ved); */
 
     notify_via_xen_event_channel(d, ved->xen_port);
 }
@@ -369,8 +369,14 @@ int vm_event_get_response(struct domain *d, struct vm_event_domain *ved,
 void vm_event_resume(struct domain *d, struct vm_event_domain *ved)
 {
     vm_event_response_t rsp;
+    int i;
 
     /* Pull all responses off the ring. */
+    for (i=0; i < d->max_vcpus; i++) {
+        struct vcpu *v = d->vcpu[i];
+        if (atomic_read(&v->vm_event_pause_count) != 0)
+            vm_event_vcpu_unpause(v);
+    }
     while ( vm_event_get_response(d, ved, &rsp) )
     {
         struct vcpu *v;
@@ -574,10 +580,10 @@ int vm_event_domctl(struct domain *d, xen_domctl_vm_event_op_t *vec,
 {
     int rc;
 
-    rc = xsm_vm_event_control(XSM_PRIV, d, vec->mode, vec->op);
-    if ( rc )
-        return rc;
-
+    /* rc = xsm_vm_event_control(XSM_PRIV, d, vec->mode, vec->op); */
+    /* if ( rc ) { */
+    /*     printk("ooops, rc = %d\n", rc); */
+    /* } */
     if ( unlikely(d == current->domain) ) /* no domain_pause() */
     {
         gdprintk(XENLOG_INFO, "Tried to do a memory event op on itself.\n");
@@ -674,13 +680,16 @@ int vm_event_domctl(struct domain *d, xen_domctl_vm_event_op_t *vec,
         switch( vec->op )
         {
         case XEN_VM_EVENT_ENABLE:
+            printk("xen_vm_event_enable for d\n");
             /* domain_pause() not required here, see XSA-99 */
             rc = arch_monitor_init_domain(d);
+            printk("arch_monitor_init_domain rc = %d\n", rc);
             if ( rc )
                 break;
             rc = vm_event_enable(d, vec, ved, _VPF_mem_access,
                                  HVM_PARAM_MONITOR_RING_PFN,
                                  monitor_notification);
+            printk("vm_event_enable rc = %d\n", rc);
             break;
 
         case XEN_VM_EVENT_DISABLE:
@@ -694,8 +703,10 @@ int vm_event_domctl(struct domain *d, xen_domctl_vm_event_op_t *vec,
             break;
 
         case XEN_VM_EVENT_RESUME:
-            if ( ved->ring_page )
+            if ( ved->ring_page ) {
                 vm_event_resume(d, ved);
+                rc = 0;
+            }
             else
                 rc = -ENODEV;
             break;

@@ -393,9 +393,10 @@ long do_domctl(XEN_GUEST_HANDLE_PARAM(xen_domctl_t) u_domctl)
     if ( copy_from_guest(op, u_domctl, 1) )
         return -EFAULT;
 
-    if ( op->interface_version != XEN_DOMCTL_INTERFACE_VERSION )
+    if ( op->interface_version != XEN_DOMCTL_INTERFACE_VERSION ) {
+        printk("invlid version: op->interface_version = %X\n", op->interface_version);
         return -EACCES;
-
+    }
     switch ( op->cmd )
     {
     case XEN_DOMCTL_createdomain:

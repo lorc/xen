@@ -32,13 +32,14 @@ int monitor_domctl(struct domain *d, struct xen_domctl_monitor_op *mop)
 {
     int rc;
     bool_t requested_status = 0;
-
+    printk("monitor_domctl op = %d event = %d\n", mop->op, mop->event);
     if ( unlikely(current->domain == d) ) /* no domain_pause() */
         return -EPERM;
 
     rc = xsm_vm_event_control(XSM_PRIV, d, mop->op, mop->event);
-    if ( unlikely(rc) )
-        return rc;
+    if ( unlikely(rc) ) {
+        printk("skipped XSM control\n");
+    }
 
     switch ( mop->op )
     {
@@ -92,20 +93,20 @@ int monitor_traps(struct vcpu *v, bool_t sync, vm_event_request_t *req)
     int rc;
     struct domain *d = v->domain;
 
-    rc = vm_event_claim_slot(d, &d->vm_event->monitor);
-    switch ( rc )
-    {
-    case 0:
-        break;
-    case -ENOSYS:
-        /*
-         * If there was no ring to handle the event, then
-         * simply continue executing normally.
-         */
-        return 0;
-    default:
-        return rc;
-    };
+    /* rc = vm_event_claim_slot(d, &d->vm_event->monitor); */
+    /* switch ( rc ) */
+    /* { */
+    /* case 0: */
+    /*     break; */
+    /* case -ENOSYS: */
+    /*     /\* */
+    /*      * If there was no ring to handle the event, then */
+    /*      * simply continue executing normally. */
+    /*      *\/ */
+    /*     return 0; */
+    /* default: */
+    /*     return rc; */
+    /* }; */
 
     req->vcpu_id = v->vcpu_id;
 

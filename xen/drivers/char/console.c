@@ -438,7 +438,7 @@ static long guest_console_write(XEN_GUEST_HANDLE_PARAM(char) buffer, int count)
             {
                 kcount = kin - kbuf;
                 cd->pbuf[cd->pbuf_idx] = '\0';
-                guest_printk(cd, XENLOG_G_DEBUG "%s%s\n", cd->pbuf, kbuf);
+                guest_printk(cd, XENLOG_G_WARNING "%s%s\n", cd->pbuf, kbuf);
                 cd->pbuf_idx = 0;
             }
             else if ( cd->pbuf_idx + kcount < (DOMAIN_PBUF_SIZE - 1) )
@@ -450,7 +450,7 @@ static long guest_console_write(XEN_GUEST_HANDLE_PARAM(char) buffer, int count)
             else
             {
                 cd->pbuf[cd->pbuf_idx] = '\0';
-                guest_printk(cd, XENLOG_G_DEBUG "%s%s\n", cd->pbuf, kbuf);
+                guest_printk(cd, XENLOG_G_WARNING "%s%s\n", cd->pbuf, kbuf);
                 cd->pbuf_idx = 0;
             }
             spin_unlock(&cd->pbuf_lock);
@@ -556,7 +556,7 @@ static int printk_prefix_check(char *p, char **pp)
 
     return ((atomic_read(&print_everything) != 0) ||
             (loglvl < lower_thresh) ||
-            ((loglvl < upper_thresh) && printk_ratelimit()));
+            ((loglvl < upper_thresh) ));
 } 
 
 static void __init parse_console_timestamps(char *s)

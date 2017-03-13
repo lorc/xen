@@ -2600,6 +2600,8 @@ static void do_trap_smc(struct cpu_user_regs *regs, const union hsr hsr)
 
     if ( rc != 1 )
         inject_undef_exception(regs, hsr);
+    else
+        advance_pc(regs, hsr);
 }
 
 static void enter_hypervisor_head(struct cpu_user_regs *regs)
