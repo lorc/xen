@@ -2614,7 +2614,6 @@ static void el0_handle_smc(void)
     for_each_domain ( d )
     {
         if (d->guest_type == guest_type_el0) {
-//            printk("Found APP domain: %u\n", d->domain_id);
             for_each_vcpu ( d, v )
             {
                 call_el0_app(v, 0x74);
@@ -2634,7 +2633,7 @@ static void do_trap_smc(struct cpu_user_regs *regs, const union hsr hsr)
         advance_pc(regs, hsr);
         el0_handle_smc();
     }
-    else el0_handle_smc();
+
 }
 
 static void enter_hypervisor_head(struct cpu_user_regs *regs)

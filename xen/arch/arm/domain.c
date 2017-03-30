@@ -254,13 +254,105 @@ static void ctxt_switch_to(struct vcpu *n)
     virt_timer_restore(n);
 }
 
+static void ctxt_switch_from_partial(struct vcpu *p)
+{
+    if (READ_SYSREG(HCR_EL2) & HCR_TGE) {
+        WRITE_SYSREG(READ_SYSREG(HCR_EL2) & ~(HCR_TGE), HCR_EL2);
+    }
+
+    p2m_save_state(p);
+
+    /* CP 15 */
+    p->arch.csselr = READ_SYSREG(CSSELR_EL1);
+
+    /* Control Registers */
+    p->arch.cpacr = READ_SYSREG(CPACR_EL1);
+
+    p->arch.contextidr = READ_SYSREG(CONTEXTIDR_EL1);
+    p->arch.tpidr_el0 = READ_SYSREG(TPIDR_EL0);
+    p->arch.tpidrro_el0 = READ_SYSREG(TPIDRRO_EL0);
+    p->arch.tpidr_el1 = READ_SYSREG(TPIDR_EL1);
+
+    /* Arch timer */
+    p->arch.cntkctl = READ_SYSREG32(CNTKCTL_EL1);
+
+    /* MMU */
+    p->arch.vbar = READ_SYSREG(VBAR_EL1);
+    p->arch.ttbcr = READ_SYSREG(TCR_EL1);
+    p->arch.ttbr0 = READ_SYSREG64(TTBR0_EL1);
+    p->arch.ttbr1 = READ_SYSREG64(TTBR1_EL1);
+    p->arch.par = READ_SYSREG64(PAR_EL1);
+    p->arch.mair = READ_SYSREG64(MAIR_EL1);
+    p->arch.amair = READ_SYSREG64(AMAIR_EL1);
+
+    /* Fault Status */
+    p->arch.far = READ_SYSREG64(FAR_EL1);
+    p->arch.esr = READ_SYSREG64(ESR_EL1);
+
+    p->arch.afsr0 = READ_SYSREG(AFSR0_EL1);
+    p->arch.afsr1 = READ_SYSREG(AFSR1_EL1);
+}
+
+static void ctxt_switch_to_partial(struct vcpu *n)
+{
+    /* When the idle VCPU is running, Xen will always stay in hypervisor
+     * mode. Therefore we don't need to restore the context of an idle VCPU.
+     */
+    if (n->domain->guest_type == guest_type_el0) {
+        WRITE_SYSREG((READ_SYSREG(HCR_EL2) | HCR_TGE) , HCR_EL2);
+    }
+    p2m_restore_state(n);
+
+    WRITE_SYSREG32(n->domain->arch.vpidr, VPIDR_EL2);
+    WRITE_SYSREG(n->arch.vmpidr, VMPIDR_EL2);
+
+
+    /* Fault Status */
+    WRITE_SYSREG64(n->arch.far, FAR_EL1);
+    WRITE_SYSREG64(n->arch.esr, ESR_EL1);
+
+    WRITE_SYSREG(n->arch.afsr0, AFSR0_EL1);
+    WRITE_SYSREG(n->arch.afsr1, AFSR1_EL1);
+
+    /* MMU */
+    WRITE_SYSREG(n->arch.vbar, VBAR_EL1);
+    WRITE_SYSREG(n->arch.ttbcr, TCR_EL1);
+    WRITE_SYSREG64(n->arch.ttbr0, TTBR0_EL1);
+    WRITE_SYSREG64(n->arch.ttbr1, TTBR1_EL1);
+
+    /*
+     * Erratum #852523: DACR32_EL2 must be restored before one of the
+     * following sysregs: SCTLR_EL1, TCR_EL1, TTBR0_EL1, TTBR1_EL1 or
+     * CONTEXTIDR_EL1.
+     */
+    WRITE_SYSREG64(n->arch.par, PAR_EL1);
+    WRITE_SYSREG64(n->arch.mair, MAIR_EL1);
+    WRITE_SYSREG64(n->arch.amair, AMAIR_EL1);
+
+    /* Control Registers */
+    WRITE_SYSREG(n->arch.cpacr, CPACR_EL1);
+
+    /*
+     * This write to sysreg CONTEXTIDR_EL1 ensures we don't hit erratum
+     * #852523. I.e DACR32_EL2 is not correctly synchronized.
+     */
+    WRITE_SYSREG(n->arch.contextidr, CONTEXTIDR_EL1);
+    WRITE_SYSREG(n->arch.tpidr_el0, TPIDR_EL0);
+    WRITE_SYSREG(n->arch.tpidrro_el0, TPIDRRO_EL0);
+    WRITE_SYSREG(n->arch.tpidr_el1, TPIDR_EL1);
+
+    /* CP 15 */
+    WRITE_SYSREG(n->arch.csselr, CSSELR_EL1);
+    isb();
+}
+
 /* Update per-VCPU guest runstate shared memory area (if registered). */
 static void update_runstate_area(struct vcpu *v)
 {
     void __user *guest_handle = NULL;
 
     if ( guest_handle_is_null(runstate_guest(v)) )
-        return;
+       return;
 
     if ( VM_ASSIST(v->domain, runstate_update_flag) )
     {
@@ -965,7 +1057,7 @@ unsigned int domain_max_vcpus(const struct domain *d)
                      d->arch.vgic.handler->max_vcpus);
 }
 
-
+/* TODO: Do this at domain construction time */
 int create_vm_11_mapping(struct domain *d, gfn_t gfn)
 {
     struct page_info *pages;
@@ -1026,18 +1118,18 @@ void call_el0_app(struct vcpu *v, unsigned long entry)
     v->arch.ttbcr = TCR_T0SZ(64-44) | TCR_IRGN0_WBWA | TCR_ORGN0_WBWA | TCR_SH0_IS | TCR_TG0_4K;
     v->arch.mair = 0x70;
     v->arch.ttbr0 = EL1_TTBR;
-    ctxt_switch_from(current);
+    ctxt_switch_from_partial(current);
     prev_vcpu = current;
     WRITE_SYSREG((READ_SYSREG(HCR_EL2) | HCR_TGE) , HCR_EL2);
-    p2m_restore_state(v);
-    ctxt_switch_to(v);
+    ctxt_switch_to_partial(v);
 //    printk("jumping to entry point\n");
 
     set_current(v);
     second_time = false;
     __save_context(prev_vcpu);
+    /* TODO: Use something similar to setjmp/longjmp  */
     if (second_time) {
-//        printk("Returning\n");
+
         return;
     }
     second_time = true;
@@ -1049,10 +1141,10 @@ void return_from_el0_app(struct vcpu *v, unsigned long code)
 //    printk("EL0 return code %lx\n", code);
 //    current = __context_switch(current, prev_vcpu);
 
-    ctxt_switch_from(current);
+    ctxt_switch_from_partial(current);
     set_current(prev_vcpu);
     local_irq_disable();
-    ctxt_switch_to(current);
+    ctxt_switch_to_partial(current);
     local_irq_enable();
     vcpu_unpause(prev_vcpu);
     __return_to_context(prev_vcpu);
