@@ -44,6 +44,7 @@
 #include <asm/cpufeature.h>
 #include <asm/flushtlb.h>
 #include <asm/monitor.h>
+#include <asm/smccc.h>
 
 #include "decode.h"
 #include "vtimer.h"
@@ -2781,11 +2782,16 @@ static void do_trap_smc(struct cpu_user_regs *regs, const union hsr hsr)
 {
     int rc = 0;
 
+    /* Let monitor to handle the call */
     if ( current->domain->arch.monitor.privileged_call_enabled )
         rc = monitor_smc();
 
-    if ( rc != 1 )
-        inject_undef_exception(regs, hsr);
+    if ( rc == 1 )
+        return;
+
+    /* Use standard routines to handle the call */
+    smccc_handle_call(regs, hsr);
+    advance_pc(regs, hsr);
 }
 
 static void enter_hypervisor_head(struct cpu_user_regs *regs)
