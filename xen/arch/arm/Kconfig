@@ -21,6 +21,8 @@ config ARM
 	select HAS_PASSTHROUGH
 	select HAS_PDX
 	select IOMMU_FORCE_PT_SHARE if !IPMMU_VMSA_LEGACY
+	select HAS_CPUFREQ
+	select HAS_PM
 
 config ARCH_DEFCONFIG
 	string
