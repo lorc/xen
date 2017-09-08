@@ -43,6 +43,7 @@
 #include <asm/processor.h>
 
 #include <acpi/acpi.h>
+#include <asm/percpu.h>
 #include <xen/cpufreq.h>
 
 static unsigned int __read_mostly usr_min_freq;
