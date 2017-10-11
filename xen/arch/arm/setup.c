@@ -47,6 +47,7 @@
 #include <asm/platform.h>
 #include <asm/procinfo.h>
 #include <asm/setup.h>
+#include <asm/tee.h>
 #include <xsm/xsm.h>
 #include <asm/acpi.h>
 
@@ -850,6 +851,9 @@ void __init start_xen(unsigned long boot_phys_offset,
      */
     apply_alternatives_all();
     enable_errata_workarounds();
+
+    /* Initialize TEE mediator */
+    tee_init();
 
     /* Create initial domain 0. */
     /* The vGIC for DOM0 is exactly emulating the hardware GIC */

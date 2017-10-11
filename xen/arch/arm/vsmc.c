@@ -22,6 +22,7 @@
 #include <asm/monitor.h>
 #include <asm/regs.h>
 #include <asm/smccc.h>
+#include <asm/tee.h>
 #include <asm/traps.h>
 #include <asm/vpsci.h>
 
@@ -234,6 +235,10 @@ static bool vsmccc_handle_call(struct cpu_user_regs *regs)
             break;
         case ARM_SMCCC_OWNER_STANDARD:
             handled = handle_sssc(regs);
+            break;
+        case ARM_SMCCC_OWNER_TRUSTED_APP ... ARM_SMCCC_OWNER_TRUSTED_APP_END:
+        case ARM_SMCCC_OWNER_TRUSTED_OS ... ARM_SMCCC_OWNER_TRUSTED_OS_END:
+            handled = tee_handle_smc(regs);
             break;
         }
     }
