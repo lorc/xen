@@ -31,6 +31,7 @@
 #include <asm/platform.h>
 #include <asm/procinfo.h>
 #include <asm/regs.h>
+#include <asm/tee.h>
 #include <asm/vfp.h>
 #include <asm/vgic.h>
 #include <asm/vtimer.h>
@@ -671,6 +672,9 @@ int arch_domain_create(struct domain *d, unsigned int domcr_flags,
     if ( is_hardware_domain(d) && (rc = domain_vuart_init(d)) )
         goto fail;
 
+    /* Notify TEE that new domain was created */
+    tee_domain_create(d);
+
     return 0;
 
 fail:
@@ -682,6 +686,9 @@ fail:
 
 void arch_domain_destroy(struct domain *d)
 {
+    /* Notify TEE that domain is being destroyed */
+    tee_domain_destroy(d);
+
     /* IOMMU page table is shared with P2M, always call
      * iommu_domain_destroy() before p2m_teardown().
      */
