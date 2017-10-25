@@ -6,6 +6,7 @@ ifneq ($(CONFIG_NO_PLAT),y)
 subdir-y += platforms
 endif
 subdir-$(CONFIG_TEE) += tee
+subdir-$(CONFIG_HAS_CPUFREQ) += cpufreq
 
 obj-$(CONFIG_HAS_ALTERNATIVE) += alternative.o
 obj-y += bootfdt.init.o
