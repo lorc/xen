@@ -4720,6 +4720,9 @@ _hidden void libxl__ev_devlock_init(libxl__ev_devlock *);
 _hidden void libxl__ev_devlock_lock(libxl__egc *, libxl__ev_devlock *);
 _hidden void libxl__ev_devlock_unlock(libxl__gc *, libxl__ev_devlock *);
 
+/* Check if domain is driver domain */
+_hidden bool libxl__is_driver_domain(libxl__gc *gc, uint32_t domid);
+
 #endif
 
 /*
