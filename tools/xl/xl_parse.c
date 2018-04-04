@@ -2364,6 +2364,39 @@ skip_vfb:
         }
     }
 
+    if (!xlu_cfg_get_long (config, "pci_msitranslate", &l, 0))
+        pci_msitranslate = l;
+
+    if (!xlu_cfg_get_long (config, "pci_power_mgmt", &l, 0))
+        pci_power_mgmt = l;
+
+    if (!xlu_cfg_get_long (config, "pci_permissive", &l, 0))
+        pci_permissive = l;
+
+    if (!xlu_cfg_get_long (config, "pci_seize", &l, 0))
+        pci_seize = l;
+
+    /* To be reworked (automatically enabled) once the auto ballooning
+     * after guest starts is done (with PCI devices passed in). */
+    if (c_info->type == LIBXL_DOMAIN_TYPE_PV) {
+        xlu_cfg_get_defbool(config, "e820_host", &b_info->u.pv.e820_host, 0);
+    }
+
+    if (!xlu_cfg_get_string(config, "rdm", &buf, 0)) {
+        libxl_rdm_reserve rdm;
+        if (!xlu_rdm_parse(config, &rdm, buf)) {
+            b_info->u.hvm.rdm.strategy = rdm.strategy;
+            b_info->u.hvm.rdm.policy = rdm.policy;
+        }
+    }
+
+    e = xlu_cfg_get_list_as_string_list(config, "dt_compatible",
+                                        &b_info->dt_compatible, 1);
+    if (e && e != ESRCH) {
+            fprintf(stderr,"xl: Unable to parse dt_compatible\n");
+            exit(-ERROR_FAIL);
+    }
+
     if (!xlu_cfg_get_list(config, "usbctrl", &usbctrls, 0, 0)) {
         d_config->num_usbctrls = 0;
         d_config->usbctrls = NULL;
