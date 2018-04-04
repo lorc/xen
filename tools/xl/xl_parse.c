@@ -2532,6 +2532,38 @@ skip_vfb:
         }
     }
 
+    if (!xlu_cfg_get_list (config, "dtdev", &dtdevs, 0, 0)) {
+        d_config->num_dtdevs = 0;
+        d_config->dtdevs = NULL;
+        for (i = 0; (buf = xlu_cfg_get_listitem(dtdevs, i)) != NULL; i++) {
+            libxl_device_dtdev *dtdev;
+
+            dtdev = ARRAY_EXTEND_INIT_NODEVID(d_config->dtdevs,
+                                              d_config->num_dtdevs,
+                                              libxl_device_dtdev_init);
+
+            dtdev->path = strdup(buf);
+            if (dtdev->path == NULL) {
+                fprintf(stderr, "unable to duplicate string for dtdevs\n");
+                exit(-1);
+            }
+        }
+    }
+
+    e = xlu_cfg_get_list_as_string_list(config, "dt_compatible",
+                                        &b_info->dt_compatible, 1);
+    if (e && e != ESRCH) {
+            fprintf(stderr,"xl: Unable to parse dt_compatible\n");
+            exit(-ERROR_FAIL);
+    }
+
+    e = xlu_cfg_get_list_as_string_list(config, "dt_passthrough_nodes",
+                                        &b_info->dt_passthrough_nodes, 1);
+    if (e && e != ESRCH) {
+            fprintf(stderr,"xl: Unable to parse dt_passthrough_nodes\n");
+            exit(-ERROR_FAIL);
+    }
+
     if (!xlu_cfg_get_list(config, "usbctrl", &usbctrls, 0, 0)) {
         d_config->num_usbctrls = 0;
         d_config->usbctrls = NULL;
