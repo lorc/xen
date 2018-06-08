@@ -59,7 +59,7 @@ config SBSA_VUART_CONSOLE
 
 config ARM_TEE
 	bool "Enable TEE mediators support"
-	default n
+	default y
 	depends on ARM
 	help
 	  This option enables generic TEE mediators support. It allows guests

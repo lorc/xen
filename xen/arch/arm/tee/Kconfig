@@ -1,4 +1,4 @@
 config ARM_OPTEE
 	bool "Enable OP-TEE mediator"
-	default n
+	default y
 	depends on ARM_TEE
