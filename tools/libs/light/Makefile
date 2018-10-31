@@ -114,6 +114,7 @@ OBJS-y += _libxl_types.o
 OBJS-y += libxl_flask.o
 OBJS-y += _libxl_types_internal.o
 OBJS-y += libxl_vgsx.o
+OBJS-y += libxl_vcamera.o
 
 # Device tree overlay is enabled only for ARM architecture.
 OBJS-$(CONFIG_ARM) += libxl_dt_overlay.o
