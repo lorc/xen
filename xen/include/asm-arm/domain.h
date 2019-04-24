@@ -101,6 +101,9 @@ struct arch_domain
 #ifdef CONFIG_TEE
     void *tee;
 #endif
+
+   struct page_info *scmi_base_pg;
+   paddr_t scmi_base_ipa;
 }  __cacheline_aligned;
 
 struct arch_vcpu
@@ -216,6 +219,7 @@ struct arch_vcpu
      */
     bool need_flush_to_ram;
 
+    int opp;
 }  __cacheline_aligned;
 
 void vcpu_show_execution_state(struct vcpu *);
