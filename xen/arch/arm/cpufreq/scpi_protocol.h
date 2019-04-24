@@ -56,6 +56,7 @@
 					CMD_LEGACY_DATA_SIZE_MASK)
 #define CMD_UNIQ_MASK	(CMD_TOKEN_ID_MASK << CMD_TOKEN_ID_SHIFT | CMD_ID_MASK)
 #define CMD_XTRACT_UNIQ(cmd)	((cmd) & CMD_UNIQ_MASK)
+#define CMD_ID(cmd) ((cmd) & CMD_ID_MASK)
 
 #define SCPI_SLOT		0
 

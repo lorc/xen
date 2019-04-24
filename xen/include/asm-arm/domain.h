@@ -97,6 +97,9 @@ struct arch_domain
     struct vpl011 vpl011;
 #endif
 
+   struct page_info *scpi_base_pg;
+   paddr_t scpi_base_ipa;
+
 }  __cacheline_aligned;
 
 struct arch_vcpu
