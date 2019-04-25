@@ -64,6 +64,8 @@
 #define MAX_DVFS_OPPS		16
 #define DVFS_LATENCY(hdr)	(le32_to_cpu(hdr) >> 16)
 #define DVFS_OPP_COUNT(hdr)	((le32_to_cpu(hdr) >> 8) & 0xff)
+#define DVFS_HEADER(pd, oppcnt, latency) (((pd) & 0xFF) | ((oppcnt) << 8) | \
+										  ((latency) << 16))
 
 #define PROTOCOL_REV_MINOR_BITS	16
 #define PROTOCOL_REV_MINOR_MASK	((1U << PROTOCOL_REV_MINOR_BITS) - 1)
@@ -253,6 +255,14 @@ struct legacy_clk_set_value {
 	__le32 rate;
 	__le16 id;
 	__le16 reserved;
+} __packed;
+
+struct dvfs_capabilities {
+	char nr_power_domains;
+} __packed;
+
+struct dvfs_info_req {
+	char domain;
 } __packed;
 
 struct dvfs_info {

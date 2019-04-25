@@ -23,6 +23,14 @@
 
 #define ARM_SMCCC_SCPI_MBOX_TRIGGER 0x82000001
 
+enum vscpi_opp {
+  VSCPI_OPP_MIN = 0,
+  VSCPI_OPP_LOW,
+  VSCPI_OPP_NOM,
+  VSCPI_OPP_HIGH,
+  VSCPI_OPP_TURBO
+};
+
 bool vscpi_handle_call(struct cpu_user_regs *regs);
 
 #endif
