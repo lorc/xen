@@ -35,6 +35,7 @@
 #include <asm/vfp.h>
 #include <asm/vgic.h>
 #include <asm/vtimer.h>
+#include <asm/vscpi.h>
 
 #include "vuart.h"
 
@@ -571,6 +572,9 @@ int arch_vcpu_create(struct vcpu *v)
     if ( (rc = vcpu_vtimer_init(v)) != 0 )
         goto fail;
 
+    if ( (rc = vcpu_vscpi_init(v)) != 0 )
+        goto fail;
+
     /*
      * The workaround 2 (i.e SSBD mitigation) is enabled by default if
      * supported.
@@ -697,6 +701,9 @@ int arch_domain_create(struct domain *d,
         goto fail;
 
     if ( (rc = domain_vtimer_init(d, &config->arch)) != 0 )
+        goto fail;
+
+    if ( (rc = domain_vscpi_init(d)) != 0 )
         goto fail;
 
     update_domain_wallclock_time(d);

@@ -32,6 +32,7 @@ enum vscpi_opp {
 };
 
 bool vscpi_handle_call(struct cpu_user_regs *regs);
+int vcpu_vscpi_init(struct vcpu *vcpu);
 
 #endif
 

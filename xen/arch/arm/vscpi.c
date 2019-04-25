@@ -28,6 +28,13 @@ static struct scpi_opp opp_table[] = {
     {2500000000, 1500},   // VSCPI_OPP_TURBO
 };
 
+int vcpu_vscpi_init(struct vcpu *vcpu)
+{
+    vcpu->arch.opp = VSCPI_OPP_NOM;
+
+    return 0;
+}
+
 uint32_t cmd_capabilities(void *arg)
 {
     struct scp_capabilities *caps = arg;
