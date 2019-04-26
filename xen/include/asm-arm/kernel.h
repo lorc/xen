@@ -27,6 +27,9 @@ struct kernel_info {
     paddr_t gnttab_start;
     paddr_t gnttab_size;
 
+    /* SCPI shmem buffer */
+    paddr_t scpi_shmem;
+
     /* boot blob load addresses */
     const struct bootmodule *kernel_bootmodule, *initrd_bootmodule;
     const char* cmdline;
