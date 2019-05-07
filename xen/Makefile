@@ -363,6 +363,9 @@ ifeq ($(need-config),y)
 # changes are detected.
 -include include/config/auto.conf.cmd
 
+%_defconfig:
+	$(MAKE) $(kconfig) $@
+
 # Allow people to just run `make` as before and not force them to configure
 # Only run defconfig if $(KCONFIG_CONFIG) is missing
 $(KCONFIG_CONFIG): tools_fixdep
