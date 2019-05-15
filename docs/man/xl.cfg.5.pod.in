@@ -1544,6 +1544,25 @@ Set maximum height for pointer device.
 
 =back
 
+=item B<tee=["none", "optee"]>
+
+Set TEE type for the guest. TEE is a Trusted Execution Environment -- separate
+secuse OS found on some platforms.
+
+=over 4
+
+=item B<"none">
+
+Disable TEE support at all. This is the default value.
+
+=item B<"optee">
+
+Allow guest to access to OP-TEE enabled on the platform. Guest will not be created
+if platform does not have OP-TEE with virtualization feature or if OP-TEE will
+deny access.
+
+=back
+
 =back
 
 =head2 Paravirtualised (PV) Guest Specific Options
