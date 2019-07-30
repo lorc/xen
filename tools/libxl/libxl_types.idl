@@ -270,6 +270,11 @@ libxl_passthrough = Enumeration("passthrough", [
     (3, "share_pt"),
     ])
 
+libxl_guest_pm_state = Enumeration("guest_pm_state", [
+   (-1, "NOT_SET"),
+   (0, "OFF"),
+   (1, "ON")
+   ])
 #
 # Complex libxl types
 #
@@ -486,6 +491,12 @@ libxl_altp2m_mode = Enumeration("altp2m_mode", [
     (3, "limited"),
     ], init_val = "LIBXL_ALTP2M_MODE_DISABLED")
 
+libxl_guest_pm_info = Struct("guest_pm", [
+    ("state", libxl_guest_pm_state),
+    ("opp_min", uint8),
+    ("opp_max", uint8)
+    ])
+
 libxl_domain_build_info = Struct("domain_build_info",[
     ("max_vcpus",       integer),
     ("avail_vcpus",     libxl_bitmap),
@@ -639,6 +650,7 @@ libxl_domain_build_info = Struct("domain_build_info",[
     # Alternate p2m is not bound to any architecture or guest type, as it is
     # supported by x86 HVM and ARM support is planned.
     ("altp2m", libxl_altp2m_mode),
+    ("guest_pm", libxl_guest_pm_info),
 
     ], dir=DIR_IN,
        copy_deprecated_fn="libxl__domain_build_info_copy_deprecated",
