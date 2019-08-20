@@ -72,6 +72,17 @@
  */
 #define MAX_TOTAL_SMH_BUF_PG    16384
 
+/*
+ * Arbitrary value that limits maximum shared buffer size. It is
+ * merely coincidence that it equals to both default OP-TEE SHM buffer
+ * size limit and to (1 << CONFIG_DOMU_MAX_ORDER). Please note that
+ * this define limits number of pages. But user buffer can be not
+ * aligned to a page boundary. So it is possible that user would not
+ * be able to share exactly MAX_SHM_BUFFER_PG * PAGE_SIZE bytes with
+ * OP-TEE.
+ */
+#define MAX_SHM_BUFFER_PG       512
+
 #define OPTEE_KNOWN_NSEC_CAPS OPTEE_SMC_NSEC_CAP_UNIPROCESSOR
 #define OPTEE_KNOWN_SEC_CAPS (OPTEE_SMC_SEC_CAP_HAVE_RESERVED_SHM | \
                               OPTEE_SMC_SEC_CAP_UNREGISTERED_SHM | \
@@ -697,15 +708,17 @@ static int translate_noncontig(struct optee_domain *ctx,
     size = ROUNDUP(param->u.tmem.size + offset, OPTEE_MSG_NONCONTIG_PAGE_SIZE);
 
     pg_count = DIV_ROUND_UP(size, OPTEE_MSG_NONCONTIG_PAGE_SIZE);
+    if ( pg_count > MAX_SHM_BUFFER_PG )
+        return -ENOMEM;
+
     order = get_order_from_bytes(get_pages_list_size(pg_count));
 
     /*
-     * In the worst case we will want to allocate 33 pages, which is
-     * MAX_TOTAL_SMH_BUF_PG/511 rounded up. This gives order 6 or at
-     * most 64 pages allocated. This buffer will be freed right after
-     * the end of the call and there can be no more than
+     * In the worst case we will want to allocate 2 pages, which is
+     * MAX_SHM_BUFFER_PG/511 rounded up. This buffer will be freed
+     * right after the end of the call and there can be no more than
      * max_optee_threads calls simultaneously. So in the worst case
-     * guest can trick us to allocate 64 * max_optee_threads pages in
+     * guest can trick us to allocate 2 * max_optee_threads pages in
      * total.
      */
     xen_pgs = alloc_domheap_pages(current->domain, order, 0);
@@ -747,13 +760,6 @@ static int translate_noncontig(struct optee_domain *ctx,
             xen_data = __map_domain_page(xen_pgs);
         }
 
-        /*
-         * TODO: That function can pin up to 64MB of guest memory by
-         * calling lookup_and_pin_guest_ram_addr() 16384 times
-         * (assuming that PAGE_SIZE equals to 4096).
-         * This should be addressed before declaring OP-TEE security
-         * supported.
-         */
         BUILD_BUG_ON(PAGE_SIZE != 4096);
         page = get_domain_ram_page(gaddr_to_gfn(guest_data->pages_list[idx]));
         if ( !page )
