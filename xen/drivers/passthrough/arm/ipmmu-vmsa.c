@@ -52,6 +52,9 @@
 #include <asm/io.h>
 #include <asm/iommu_fwspec.h>
 
+extern int ipmmu_preinit(struct dt_device_node *np);
+extern bool ipmmu_is_mmu_tlb_disable_needed(struct dt_device_node *np);
+
 #define dev_name(dev) dt_node_full_name(dev_to_dt(dev))
 
 /* Device logger functions */
@@ -232,6 +235,7 @@ static DEFINE_SPINLOCK(ipmmu_devices_lock);
 
 #define IMSCTLR             0x0500
 #define IMSCTLR_USE_SECGRP  (1 << 28)
+#define IMSCTLR_DISCACHE    0xE0000000
 
 #define IMSAUXCTLR          0x0504
 #define IMSAUXCTLR_S2PTE    (1 << 3)
@@ -982,6 +986,18 @@ static int ipmmu_probe(struct dt_device_node *node)
         dev_info(&node->dev, "IPMMU context 0 is reserved\n");
         set_bit(0, mmu->ctx);
     }
+    else
+    {
+        /*
+         * Disable IPMMU TLB cache function of Cache devices that
+         * do require such action.
+         */
+        if ( ipmmu_is_mmu_tlb_disable_needed(node) )
+        {
+            reg = IMSCTLR + mmu->features->ctx_offset_stride_adj;
+            ipmmu_write(mmu, reg, ipmmu_read(mmu, reg) | IMSCTLR_DISCACHE);
+        }
+    }
 
     /* Do not use security group function. */
     reg = IMSCTLR + mmu->features->ctx_offset_stride_adj;
@@ -1380,6 +1396,7 @@ static const struct iommu_ops ipmmu_iommu_ops =
 
 static __init int ipmmu_init(struct dt_device_node *node, const void *data)
 {
+    static bool s4;
     int ret;
 
     /*
@@ -1387,6 +1404,24 @@ static __init int ipmmu_init(struct dt_device_node *node, const void *data)
      * the IPMMU device to dom0.
      */
     dt_device_set_used_by(node, DOMID_XEN);
+
+
+    if ( !s4 && dt_device_is_compatible(node, "renesas,ipmmu-r8a779f0") )
+        s4 = true;
+
+    if ( !s4 )
+    {
+        /*
+         * Perform platform specific actions such as power-on, errata maintenance
+         * if required.
+         */
+        ret = ipmmu_preinit(node);
+        if ( ret )
+        {
+            dev_err(&node->dev, "Failed to preinit IPMMU (%d)\n", ret);
+            return ret;
+        }
+    }
 
     ret = ipmmu_probe(node);
     if ( ret )
