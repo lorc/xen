@@ -60,6 +60,10 @@ static LIST_HEAD_READ_MOSTLY(cpufreq_dom_list_head);
 struct cpufreq_governor *__read_mostly cpufreq_opt_governor;
 LIST_HEAD_READ_MOSTLY(cpufreq_governor_list);
 
+int (*cpufreq_driver_target)(struct cpufreq_policy *policy,
+                             unsigned int target_freq,
+                             unsigned int relation) = __cpufreq_driver_target;
+
 /* set xen as default cpufreq */
 enum cpufreq_controller cpufreq_controller = FREQCTL_xen;
 

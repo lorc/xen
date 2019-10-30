@@ -131,6 +131,10 @@ extern int __cpufreq_driver_target(struct cpufreq_policy *policy,
                                    unsigned int target_freq,
                                    unsigned int relation);
 
+extern int (*cpufreq_driver_target)(struct cpufreq_policy *policy,
+                             unsigned int target_freq,
+                             unsigned int relation);
+
 #define GOV_GETAVG     1
 #define USR_GETAVG     2
 extern int cpufreq_driver_getavg(unsigned int cpu, unsigned int flag);

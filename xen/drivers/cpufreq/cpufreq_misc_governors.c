@@ -47,13 +47,13 @@ static int cpufreq_governor_userspace(struct cpufreq_policy *policy,
         break;
     case CPUFREQ_GOV_LIMITS:
         if (policy->max < per_cpu(cpu_set_freq, cpu))
-            ret = __cpufreq_driver_target(policy, policy->max,
+            ret = cpufreq_driver_target(policy, policy->max,
                         CPUFREQ_RELATION_H);
         else if (policy->min > per_cpu(cpu_set_freq, cpu))
-            ret = __cpufreq_driver_target(policy, policy->min,
+            ret = cpufreq_driver_target(policy, policy->min,
                         CPUFREQ_RELATION_L);
         else
-            ret = __cpufreq_driver_target(policy, per_cpu(cpu_set_freq, cpu),
+            ret = cpufreq_driver_target(policy, per_cpu(cpu_set_freq, cpu),
                         CPUFREQ_RELATION_L);
 
         break;
@@ -79,7 +79,7 @@ int write_userspace_scaling_setspeed(unsigned int cpu, unsigned int freq)
     if (freq > policy->max)
         freq = policy->max;
 
-    return __cpufreq_driver_target(policy, freq, CPUFREQ_RELATION_L);
+    return cpufreq_driver_target(policy, freq, CPUFREQ_RELATION_L);
 }
 
 static bool_t __init
@@ -158,7 +158,7 @@ static int cpufreq_governor_performance(struct cpufreq_policy *policy,
     case CPUFREQ_GOV_STOP:
         break;
     case CPUFREQ_GOV_LIMITS:
-        ret = __cpufreq_driver_target(policy, policy->max,
+        ret = cpufreq_driver_target(policy, policy->max,
                         CPUFREQ_RELATION_H);
         break;
     default:
@@ -197,7 +197,7 @@ static int cpufreq_governor_powersave(struct cpufreq_policy *policy,
     case CPUFREQ_GOV_STOP:
         break;
     case CPUFREQ_GOV_LIMITS:
-        ret = __cpufreq_driver_target(policy, policy->min,
+        ret = cpufreq_driver_target(policy, policy->min,
                         CPUFREQ_RELATION_L);
         break;
     default:

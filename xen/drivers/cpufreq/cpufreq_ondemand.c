@@ -109,7 +109,7 @@ static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
     max = policy->max;
 
     if (unlikely(policy->resume)) {
-        __cpufreq_driver_target(policy, max,CPUFREQ_RELATION_H);
+        cpufreq_driver_target(policy, max,CPUFREQ_RELATION_H);
         return;
     }
 
@@ -148,7 +148,7 @@ static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
         /* if we are already at full speed then break out early */
         if (policy->cur == max)
             return;
-        __cpufreq_driver_target(policy, max, CPUFREQ_RELATION_H);
+        cpufreq_driver_target(policy, max, CPUFREQ_RELATION_H);
         return;
     }
 
@@ -168,7 +168,7 @@ static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
 
         freq_next = max_load_freq / (dbs_tuners_ins.up_threshold - 10);
 
-        __cpufreq_driver_target(policy, freq_next, CPUFREQ_RELATION_L);
+        cpufreq_driver_target(policy, freq_next, CPUFREQ_RELATION_L);
     }
 }
 
@@ -297,10 +297,10 @@ int cpufreq_governor_dbs(struct cpufreq_policy *policy, unsigned int event)
             return -EINVAL;
         }
         if (policy->max < this_dbs_info->cur_policy->cur)
-            __cpufreq_driver_target(this_dbs_info->cur_policy,
+            cpufreq_driver_target(this_dbs_info->cur_policy,
                 policy->max, CPUFREQ_RELATION_H);
         else if (policy->min > this_dbs_info->cur_policy->cur)
-            __cpufreq_driver_target(this_dbs_info->cur_policy,
+            cpufreq_driver_target(this_dbs_info->cur_policy,
                 policy->min, CPUFREQ_RELATION_L);
         break;
     }

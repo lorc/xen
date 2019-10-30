@@ -61,7 +61,7 @@ static int cpufreq_vscmi_cpu_callback(
 
         freq = vscmi_scale_opp(requested_opp, policy->min, policy->max);
 
-        ret = __cpufreq_driver_target(policy, freq, CPUFREQ_RELATION_L);
+        ret = cpufreq_driver_target(policy, freq, CPUFREQ_RELATION_L);
         if ( ret < 0 )
         {
             printk(XENLOG_WARNING" __cpufreq_driver_target failed with error code %d\n",
