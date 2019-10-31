@@ -177,8 +177,8 @@ static int cpufreq_governor_meta(struct cpufreq_policy *policy,
                 break;
             pol = xmalloc(struct cpufreq_policy);
             if ( !pol ) {
-                /* TODO: Perform cleanup */
-                return -ENOMEM;
+                ret = -ENOMEM;
+                goto fault;
             }
 
             memcpy(pol, policy, sizeof(*pol));
@@ -190,15 +190,24 @@ static int cpufreq_governor_meta(struct cpufreq_policy *policy,
                 printk(KERN_WARNING"Error %d during starting governor %s\n",
                        ret, enabled_govs[gov].gov->name);
 
-                /* TODO: Perform further cleanup */
                 xfree(pol);
                 enabled_govs[gov].policies[pol_idx] = NULL;
-
-                return ret;
+                goto fault;
             }
         }
 
         break;
+    fault:
+        for ( gov = 0; gov < MAX_GOVS; gov++ ) {
+            if ( !enabled_govs[gov].gov )
+                break;
+
+            pol = enabled_govs[gov].policies[pol_idx];
+            pol->governor->governor(pol, CPUFREQ_GOV_STOP);
+            xfree(pol);
+            enabled_govs[gov].policies[pol_idx] = NULL;
+        }
+        return ret;
     case CPUFREQ_GOV_STOP:
         /* Find our policy entry */
         for ( pol_idx = 0; pol_idx < MAX_POLICIES; pol_idx++) {
