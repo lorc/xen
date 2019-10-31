@@ -601,7 +601,8 @@ static int __init cpufreq_cmdline_parse(const char *s)
         &cpufreq_gov_dbs,
         &cpufreq_gov_performance,
         &cpufreq_gov_powersave,
-        &cpufreq_gov_vscmi
+        &cpufreq_gov_vscmi,
+        &cpufreq_gov_meta,
     };
     static char __initdata buf[128];
     char *str = buf;

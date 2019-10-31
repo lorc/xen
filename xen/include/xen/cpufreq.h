@@ -67,6 +67,10 @@ struct cpufreq_policy {
     unsigned int        max;    /* in kHz */
     unsigned int        cur;    /* in kHz, only needed if cpufreq
                                  * governors are used */
+
+    unsigned int        meta_mode;  /* target selection mode for meta gov */
+    unsigned int        rel;  /* relation, used by meta gov */
+
     struct perf_limits  limits;
     struct cpufreq_governor     *governor;
 
@@ -119,6 +123,7 @@ extern struct cpufreq_governor cpufreq_gov_userspace;
 extern struct cpufreq_governor cpufreq_gov_performance;
 extern struct cpufreq_governor cpufreq_gov_powersave;
 extern struct cpufreq_governor cpufreq_gov_vscmi;
+extern struct cpufreq_governor cpufreq_gov_meta;
 
 extern struct list_head cpufreq_governor_list;
 
