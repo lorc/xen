@@ -1886,6 +1886,7 @@ int xc_smt_disable(xc_interface *xch);
  */
 typedef struct xen_userspace xc_userspace_t;
 typedef struct xen_ondemand xc_ondemand_t;
+typedef struct xen_meta xc_meta_t;
 
 struct xc_get_cpufreq_para {
     /* IN/OUT variable */
@@ -1913,6 +1914,7 @@ struct xc_get_cpufreq_para {
     union {
         xc_userspace_t userspace;
         xc_ondemand_t ondemand;
+        xc_meta_t meta;
     } u;
 
     int32_t turbo_enabled;

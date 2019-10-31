@@ -256,6 +256,8 @@ int write_ondemand_up_threshold(unsigned int up_threshold);
 
 int write_userspace_scaling_setspeed(unsigned int cpu, unsigned int freq);
 
+int write_meta_mode(unsigned int cpu, unsigned int mode);
+
 void cpufreq_dbs_timer_suspend(void);
 void cpufreq_dbs_timer_resume(void);
 

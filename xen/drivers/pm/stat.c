@@ -290,6 +290,14 @@ static int get_cpufreq_para(struct xen_sysctl_pm_op *op)
             &op->u.get_para.u.ondemand.sampling_rate,
             &op->u.get_para.u.ondemand.up_threshold);
     }
+
+    if ( !strnicmp(op->u.get_para.scaling_governor,
+                   "meta", CPUFREQ_NAME_LEN) )
+    {
+        op->u.get_para.u.meta.mode = policy->meta_mode;
+    }
+
+
     op->u.get_para.turbo_enabled = cpufreq_get_turbo_status(op->cpuid);
 
     return ret;
@@ -379,6 +387,19 @@ static int set_cpufreq_para(struct xen_sysctl_pm_op *op)
         if ( !strnicmp(policy->governor->name,
                        "ondemand", CPUFREQ_NAME_LEN) )
             ret = write_ondemand_up_threshold(up_threshold);
+        else
+            ret = -EINVAL;
+
+        break;
+    }
+
+    case META_GOV_MODE:
+    {
+        unsigned int mode = op->u.set_para.ctrl_value;
+
+        if ( !strnicmp(policy->governor->name,
+                       "meta", CPUFREQ_NAME_LEN) )
+            ret = write_meta_mode(op->cpuid, mode);
         else
             ret = -EINVAL;
 

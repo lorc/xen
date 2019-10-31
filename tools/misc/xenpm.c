@@ -36,6 +36,13 @@
 static xc_interface *xc_handle;
 static unsigned int max_cpu_nr;
 
+static char meta_gov_modes[][32] =
+{
+  [CPUFREQ_GOV_META_MAX] = "Max",
+  [CPUFREQ_GOV_META_MIN] = "Min",
+  [CPUFREQ_GOV_META_AVG] = "Average",
+};
+
 /* help message */
 void show_help(void)
 {
@@ -60,6 +67,9 @@ void show_help(void)
             "                                     it is used in ondemand governor.\n"
             " set-up-threshold      [cpuid] <num> set up threshold on CPU <cpuid> or all\n"
             "                                     it is used in ondemand governor.\n"
+            " set-meta-mode         [cpuid] <num> set mode for meta governor on CPU <cpuid> or all\n"
+            "                                     use 0 for Max, 1 for Min or 2 for Avg. Default\n"
+            "                                     mode is 2 - Avg\n"
             " get-cpu-topology                    get thread/core/socket topology info\n"
             " set-sched-smt           enable|disable enable/disable scheduler smt power saving\n"
             " set-vcpu-migration-delay      <num> set scheduler vcpu migration delay in us\n"
@@ -748,6 +758,11 @@ static void print_cpufreq_para(int cpuid, struct xc_get_cpufreq_para *p_cpufreq)
                p_cpufreq->u.ondemand.sampling_rate);
         printf("    up_threshold     : %u\n",
                p_cpufreq->u.ondemand.up_threshold);
+    } if ( !strncmp(p_cpufreq->scaling_governor,
+                       "meta", CPUFREQ_NAME_LEN) )
+    {
+        printf("  meta specific  :\n");
+        printf("    mode    : %s\n", meta_gov_modes[p_cpufreq->u.meta.mode]);
     }
 
     printf("scaling_avail_freq   :");
@@ -974,6 +989,34 @@ void scaling_up_threshold_func(int argc, char *argv[])
     {
         if ( xc_set_cpufreq_para(xc_handle, cpuid, UP_THRESHOLD, threshold) )
             fprintf(stderr, "failed to set up scaling threshold (%d - %s)\n",
+                    errno, strerror(errno));
+    }
+}
+
+void scaling_meta_mode_func(int argc, char *argv[])
+{
+    int cpuid = -1, mode = -1;
+
+    parse_cpuid_and_int(argc, argv, &cpuid, &mode, "mode");
+    if ( mode < 0 || mode >= CPUFREQ_GOV_META_LAST )
+    {
+        fprintf(stderr, "invalid mode for meta governor: %d\n", mode);
+        return;
+    };
+
+    if ( cpuid < 0 )
+    {
+        int i;
+        for ( i = 0; i < max_cpu_nr; i++ )
+            if ( xc_set_cpufreq_para(xc_handle, i, META_GOV_MODE, mode) )
+                fprintf(stderr,
+                        "[CPU%d] failed to set mode for meta governor (%d - %s)\n",
+                        i, errno, strerror(errno));
+    }
+    else
+    {
+      if ( xc_set_cpufreq_para(xc_handle, cpuid, META_GOV_MODE, mode) )
+            fprintf(stderr, "failed to set mode for meta governor (%d - %s)\n",
                     errno, strerror(errno));
     }
 }
@@ -1232,6 +1275,7 @@ struct {
     { "set-scaling-speed", scaling_speed_func },
     { "set-sampling-rate", scaling_sampling_rate_func },
     { "set-up-threshold", scaling_up_threshold_func },
+    { "set-meta-mode", scaling_meta_mode_func },
     { "get-cpu-topology", cpu_topology_func},
     { "set-sched-smt", set_sched_smt_func},
     { "get-vcpu-migration-delay", get_vcpu_migration_delay_func},

@@ -283,6 +283,13 @@ struct xen_sysctl_cpu_hotplug {
     uint32_t op;    /* hotplug opcode */
 };
 
+enum cpufreq_gov_meta_mode {
+    CPUFREQ_GOV_META_MAX,
+    CPUFREQ_GOV_META_MIN,
+    CPUFREQ_GOV_META_AVG,
+    CPUFREQ_GOV_META_LAST,
+};
+
 /*
  * Get/set xen power management, include
  * 1. cpufreq governors and related parameters
@@ -300,6 +307,9 @@ struct xen_ondemand {
     uint32_t up_threshold;
 };
 
+struct xen_meta {
+    uint8_t mode;
+};
 /*
  * cpufreq para name of this structure named
  * same as sysfs file name of native linux
@@ -331,6 +341,7 @@ struct xen_get_cpufreq_para {
     union {
         struct  xen_userspace userspace;
         struct  xen_ondemand ondemand;
+        struct  xen_meta meta;
     } u;
 
     int32_t turbo_enabled;
@@ -346,6 +357,7 @@ struct xen_set_cpufreq_para {
     #define SCALING_SETSPEED           3
     #define SAMPLING_RATE              4
     #define UP_THRESHOLD               5
+    #define META_GOV_MODE              6
 
     uint32_t ctrl_type;
     uint32_t ctrl_value;

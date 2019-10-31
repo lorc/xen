@@ -32,12 +32,6 @@ struct gov_meta_state {
     struct cpufreq_policy *policies[MAX_POLICIES];
 };
 
-enum cpufreq_gov_meta_mode {
-    CPUFREQ_GOV_META_MAX,
-    CPUFREQ_GOV_META_MIN,
-    CPUFREQ_GOV_META_AVG,
-};
-
 static struct gov_meta_state enabled_govs[MAX_GOVS] =
 {
     {.gov = &cpufreq_gov_vscmi},
@@ -115,6 +109,32 @@ static int cpufreq_meta_update_target(int pol_idx)
     return __cpufreq_driver_target(meta_policies[pol_idx], target_freq,
                                    relation);
 }
+
+int write_meta_mode(unsigned int cpu, unsigned int mode)
+{
+    struct cpufreq_policy *policy;
+    int pol_idx;
+
+    if (!cpu_online(cpu) || !(policy = per_cpu(cpufreq_cpu_policy, cpu)))
+        return -EINVAL;
+
+    if (mode >= CPUFREQ_GOV_META_LAST)
+        return -EINVAL;
+
+    for ( pol_idx = 0; pol_idx < MAX_POLICIES; pol_idx++ )
+        if ( meta_policies[pol_idx] == policy )
+            break;
+
+    if ( meta_policies[pol_idx] != policy )
+        return -EINVAL;
+
+    policy->meta_mode = mode;
+
+    cpufreq_meta_update_target(pol_idx);
+
+    return 0;
+}
+
 
 /* Callback that is called by any governor trying to set the freq */
 static int cpufreq_meta_set_target(struct cpufreq_policy *policy,
