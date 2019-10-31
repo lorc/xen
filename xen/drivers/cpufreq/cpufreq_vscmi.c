@@ -26,6 +26,8 @@
 #include <xen/percpu.h>
 #include <xen/sched.h>
 
+static DEFINE_PER_CPU(struct cpufreq_policy*, vscmi_policy);
+
 static int cpufreq_vscmi_cpu_callback(
     struct notifier_block *nfb, unsigned long action, void *hcpu)
 {
@@ -57,7 +59,7 @@ static int cpufreq_vscmi_cpu_callback(
             }
         }
 
-        policy = per_cpu(cpufreq_cpu_policy, pcpu);
+        policy = per_cpu(vscmi_policy, pcpu);
 
         freq = vscmi_scale_opp(requested_opp, policy->min, policy->max);
 
@@ -109,6 +111,8 @@ static int cpufreq_governor_vscmi(struct cpufreq_policy *policy,
 
     switch (event) {
     case CPUFREQ_GOV_START:
+        per_cpu(vscmi_policy, cpu) = policy;
+
         if ( start_cnt++ > 0 )
             break;
 
@@ -117,6 +121,8 @@ static int cpufreq_governor_vscmi(struct cpufreq_policy *policy,
 
         break;
     case CPUFREQ_GOV_STOP:
+        per_cpu(vscmi_policy, cpu) = NULL;
+
         if ( start_cnt == 0 )
             break;
 
