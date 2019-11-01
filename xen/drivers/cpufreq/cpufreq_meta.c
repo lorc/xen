@@ -59,6 +59,12 @@ static int cpufreq_meta_update_target(int pol_idx)
     unsigned long int target_sum;
     struct cpufreq_policy *pol;
 
+    if ( unlikely(meta_policies[pol_idx]->resume) )
+        return cpufreq_driver_target(meta_policies[pol_idx],
+                                     meta_policies[pol_idx]->max,
+                              CPUFREQ_RELATION_H);
+
+
     switch ( meta_policies[pol_idx]->meta_mode )
     {
     case CPUFREQ_GOV_META_MAX:
@@ -191,6 +197,7 @@ static int cpufreq_governor_meta(struct cpufreq_policy *policy,
             return -ENOMEM;
 
         meta_policies[pol_idx] = policy;
+        meta_policies[pol_idx]->meta_mode = default_mode;
 
         for ( gov = 0; gov < MAX_GOVS; gov++ ) {
             if ( !enabled_govs[gov].gov )
@@ -203,7 +210,8 @@ static int cpufreq_governor_meta(struct cpufreq_policy *policy,
 
             memcpy(pol, policy, sizeof(*pol));
             pol->governor = enabled_govs[gov].gov;
-            pol->meta_mode = default_mode;
+            /* This is our task to see what real state of policy */
+            pol->resume = 0;
             enabled_govs[gov].policies[pol_idx] = pol;
             ret = pol->governor->governor(pol, event);
             if ( ret ) {
