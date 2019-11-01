@@ -27,6 +27,8 @@
 #define MAX_GOVS 8
 #define MAX_POLICIES 8
 
+extern bool cpufreq_debug;
+
 struct gov_meta_state {
     struct cpufreq_governor *gov;
     struct cpufreq_policy *policies[MAX_POLICIES];
@@ -157,6 +159,12 @@ static int cpufreq_meta_set_target(struct cpufreq_policy *policy,
         for ( pol = 0; pol < MAX_POLICIES; pol++ )
             if (enabled_govs[gov].policies[pol] == policy)
             {
+                if ( cpufreq_debug )
+                    printk("Governor %s cpu %d req %d\n",
+                           enabled_govs[gov].gov->name,
+                           policy->cpu,
+                           target_freq);
+
                 enabled_govs[gov].policies[pol]->cur = target_freq;
                 enabled_govs[gov].policies[pol]->rel = relation;
 
