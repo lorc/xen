@@ -162,6 +162,8 @@ xenstat_node *xenstat_get_node(xenstat_handle * handle, unsigned int flags)
 	node->free_mem = ((unsigned long long)physinfo.free_pages)
 	    * handle->page_size;
 
+	node->irq_time = physinfo.irq_time;
+	node->hyp_time = physinfo.hyp_time;
 	node->freeable_mb = 0;
 	/* malloc(0) is not portable, so allocate a single domain.  This will
 	 * be resized below. */
@@ -330,6 +332,16 @@ unsigned int xenstat_node_num_cpus(xenstat_node * node)
 unsigned long long xenstat_node_cpu_hz(xenstat_node * node)
 {
 	return node->cpu_hz;
+}
+
+unsigned long long xenstat_node_irq_time(xenstat_node * node)
+{
+	return node->irq_time;
+}
+
+unsigned long long xenstat_node_hyp_time(xenstat_node * node)
+{
+	return node->hyp_time;
 }
 
 /* Get the domain ID for this domain */

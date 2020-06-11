@@ -48,6 +48,8 @@ struct xenstat_node {
 	unsigned long long tot_mem;
 	unsigned long long free_mem;
 	unsigned int num_domains;
+	unsigned long long irq_time;
+	unsigned long long hyp_time;
 	xenstat_domain *domains;	/* Array of length num_domains */
 	long freeable_mb;
 };

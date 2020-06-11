@@ -496,11 +496,25 @@ static void print_cpu(xenstat_domain *domain)
 	print("%10llu", xenstat_domain_cpu_ns(domain)/1000000000);
 }
 
+/* Helper to calculate CPU load percentage */
+static double calc_time_pct(uint64_t cur_time_ns, uint64_t prev_time_ns)
+{
+	double us_elapsed;
+
+	/* Calculate the time elapsed in microseconds */
+	us_elapsed = ((curtime.tv_sec-oldtime.tv_sec)*1000000.0
+		      +(curtime.tv_usec - oldtime.tv_usec));
+
+	/* In the following, nanoseconds must be multiplied by 1000.0 to
+	 * convert to microseconds, then divided by 100.0 to get a percentage,
+	 * resulting in a multiplication by 10.0 */
+	return ((cur_time_ns - prev_time_ns) / 10.0) / us_elapsed;
+}
+
 /* Computes the CPU percentage used for a specified domain */
 static double get_cpu_pct(xenstat_domain *domain)
 {
 	xenstat_domain *old_domain;
-	double us_elapsed;
 
 	/* Can't calculate CPU percentage without a previous sample. */
 	if(prev_node == NULL)
@@ -510,15 +524,8 @@ static double get_cpu_pct(xenstat_domain *domain)
 	if(old_domain == NULL)
 		return 0.0;
 
-	/* Calculate the time elapsed in microseconds */
-	us_elapsed = ((curtime.tv_sec-oldtime.tv_sec)*1000000.0
-		      +(curtime.tv_usec - oldtime.tv_usec));
-
-	/* In the following, nanoseconds must be multiplied by 1000.0 to
-	 * convert to microseconds, then divided by 100.0 to get a percentage,
-	 * resulting in a multiplication by 10.0 */
-	return ((xenstat_domain_cpu_ns(domain)
-		 -xenstat_domain_cpu_ns(old_domain))/10.0)/us_elapsed;
+	return calc_time_pct(xenstat_domain_cpu_ns(domain),
+						 xenstat_domain_cpu_ns(old_domain));
 }
 
 static int compare_cpu_pct(xenstat_domain *domain1, xenstat_domain *domain2)
@@ -878,6 +885,23 @@ static void print_ssid(xenstat_domain *domain)
 	print("%4u", xenstat_domain_ssid(domain));
 }
 
+/* Computes the Xen time stats in percents */
+static void get_xen_time_stats(double *irq_pct, double *hyp_pct)
+{
+	/* Can't calculate CPU percentage without a previous sample. */
+	if(prev_node == NULL)
+	{
+		*irq_pct = 0.0;
+		*hyp_pct = 0.0;
+		return;
+	}
+
+	*irq_pct = calc_time_pct(xenstat_node_irq_time(cur_node),
+							 xenstat_node_irq_time(prev_node));
+	*hyp_pct = calc_time_pct(xenstat_node_hyp_time(cur_node),
+							 xenstat_node_hyp_time(prev_node));
+}
+
 /* Resets default_width for fields with potentially large numbers */
 void reset_field_widths(void)
 {
@@ -943,6 +967,7 @@ void do_summary(void)
 	         crash = 0, dying = 0, shutdown = 0;
 	unsigned i, num_domains = 0;
 	unsigned long long used = 0;
+	double irq_pct, hyp_pct;
 	xenstat_domain *domain;
 	time_t curt;
 
@@ -975,9 +1000,16 @@ void do_summary(void)
 	      xenstat_node_tot_mem(cur_node)/1024, used/1024,
 	      xenstat_node_free_mem(cur_node)/1024);
 
-	print("CPUs: %u @ %lluMHz\n",
+	print("CPUs: %u @ %lluMHz  ",
 	      xenstat_node_num_cpus(cur_node),
 	      xenstat_node_cpu_hz(cur_node)/1000000);
+
+	get_xen_time_stats(&irq_pct, &hyp_pct);
+	print("IRQ Time %.1fs %6.1f%% HYP Time %.1fs %6.1f%%\n",
+		  xenstat_node_irq_time(cur_node) / 1000000000.0,
+		  irq_pct,
+		  xenstat_node_hyp_time(cur_node) / 1000000000.0,
+		  hyp_pct);
 }
 
 /* Display the top header for the domain table */

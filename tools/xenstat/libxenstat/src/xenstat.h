@@ -80,6 +80,12 @@ unsigned int xenstat_node_num_cpus(xenstat_node * node);
 /* Get information about the CPU speed */
 unsigned long long xenstat_node_cpu_hz(xenstat_node * node);
 
+/* Get information about time spent in IRQ handlers */
+unsigned long long xenstat_node_irq_time(xenstat_node * node);
+
+/* Get information about time spent doing hypervisor work */
+unsigned long long xenstat_node_hyp_time(xenstat_node * node);
+
 /*
  * Domain functions - extract information from a xenstat_domain
  */
