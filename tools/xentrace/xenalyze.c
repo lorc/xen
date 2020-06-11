@@ -7546,6 +7546,43 @@ void sched_process(struct pcpu_info *p)
                 printf("\n");
             }
             break;
+        case TRC_SCHED_IRQ_ENTRY:
+        case TRC_SCHED_IRQ_LEAVE:
+            if(opt.dump_all)
+            {
+                struct {
+                    unsigned int nesting;
+                } *r = (typeof(r))ri->d;
+
+                printf(" %s sched_irq_%s nesting = %u\n", ri->dump_header,
+                       ri->event == TRC_SCHED_IRQ_ENTRY ? "entry":"leave",
+                       r->nesting);
+            }
+            break;
+        case TRC_SCHED_HYP_ENTRY:
+        case TRC_SCHED_HYP_LEAVE:
+            if(opt.dump_all)
+            {
+                struct {
+                    unsigned int domid, vcpuid;
+                } *r = (typeof(r))ri->d;
+
+                printf(" %s sched_hyp_%s d%uv%u\n", ri->dump_header,
+                       ri->event == TRC_SCHED_HYP_ENTRY ? "entry":"leave",
+                       r->domid, r->vcpuid);
+            }
+            break;
+        case TRC_SCHED_TIME_ADJ:
+            if(opt.dump_all)
+            {
+                struct {
+                    unsigned int irq, hyp;
+                } *r = (typeof(r))ri->d;
+
+                printf(" %s sched time adjust IRQ %uns HYP %uns Total %uns\n", ri->dump_header,
+                       r->irq, r->hyp, r->irq + r->hyp);
+            }
+            break;
         case TRC_SCHED_CTL:
         case TRC_SCHED_S_TIMER_FN:
         case TRC_SCHED_T_TIMER_FN:

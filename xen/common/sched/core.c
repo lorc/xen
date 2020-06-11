@@ -925,6 +925,8 @@ void vcpu_begin_irq_handler(void)
     if (is_idle_vcpu(current))
         return;
 
+    TRACE_1D(TRC_SCHED_IRQ_ENTRY, current->irq_nesting);
+
     /* XXX: Looks like ASSERT_INTERRUPTS_DISABLED() is available only for x86 */
     if ( current->irq_nesting++ )
         return;
@@ -940,6 +942,8 @@ void vcpu_end_irq_handler(void)
         return;
 
     ASSERT(current->irq_nesting);
+
+    TRACE_1D(TRC_SCHED_IRQ_LEAVE, current->irq_nesting - 1);
 
     if ( --current->irq_nesting )
         return;
@@ -960,6 +964,7 @@ void vcpu_begin_hyp_task(struct vcpu *v)
 #ifndef NDEBUG
     v->in_hyp_task = true;
 #endif
+    TRACE_2D(TRC_SCHED_HYP_ENTRY, v->domain->domain_id, v->vcpu_id);
 }
 
 void vcpu_end_hyp_task(struct vcpu *v)
@@ -978,6 +983,8 @@ void vcpu_end_hyp_task(struct vcpu *v)
 #ifndef NDEBUG
     v->in_hyp_task = false;
 #endif
+    TRACE_2D(TRC_SCHED_HYP_LEAVE, v->domain->domain_id, v->vcpu_id);
+}
 
 s_time_t sched_get_time_correction(struct sched_unit *u)
 {
@@ -1002,6 +1009,8 @@ s_time_t sched_get_time_correction(struct sched_unit *u)
     sched_stat_irq_time += irq;
     sched_stat_hyp_time += hyp;
     spin_unlock_irqrestore(&sched_stat_lock, flags);
+
+    TRACE_2D(TRC_SCHED_TIME_ADJ, irq, hyp);
 
     return irq + hyp;
 }
