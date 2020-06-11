@@ -974,6 +974,29 @@ void vcpu_end_hyp_task(struct vcpu *v)
 #ifndef NDEBUG
     v->in_hyp_task = false;
 #endif
+
+s_time_t sched_get_time_correction(struct sched_unit *u)
+{
+    unsigned long flags;
+    int irq, hyp;
+
+    while ( true )
+    {
+        irq = atomic_read(&u->irq_time);
+        if ( likely( irq == atomic_cmpxchg(&u->irq_time, irq, 0)) )
+            break;
+    }
+
+    while ( true )
+    {
+        hyp = atomic_read(&u->hyp_time);
+        if ( likely( hyp == atomic_cmpxchg(&u->hyp_time, hyp, 0)) )
+            break;
+    }
+
+    return irq + hyp;
+}
+
 }
 
 /*
