@@ -237,6 +237,9 @@ struct vcpu
     evtchn_port_t    virq_to_evtchn[NR_VIRQS];
     spinlock_t       virq_lock;
 
+    /* Fair scheduling state */
+    uint64_t         irq_entry_time;
+    unsigned int     irq_nesting;
     /* Tasklet for continue_hypercall_on_cpu(). */
     struct tasklet   continue_hypercall_tasklet;
 
@@ -275,6 +278,9 @@ struct sched_unit {
     uint64_t               state_entry_time;
     /* Vcpu state summary. */
     unsigned int           runstate_cnt[4];
+
+    /* Fair scheduling correction value */
+    atomic_t               irq_time;
 
     /* Bitmask of CPUs on which this VCPU may run. */
     cpumask_var_t          cpu_hard_affinity;
@@ -689,6 +695,13 @@ void vcpu_wake(struct vcpu *v);
 long vcpu_yield(void);
 void vcpu_sleep_nosync(struct vcpu *v);
 void vcpu_sleep_sync(struct vcpu *v);
+
+/*
+ * Report IRQ handling time to scheduler. As IRQs can be nested,
+ * next two functions are re-enterable.
+ */
+void vcpu_begin_irq_handler(void);
+void vcpu_end_irq_handler(void);
 
 /*
  * Force synchronisation of given VCPU's state. If it is currently descheduled,

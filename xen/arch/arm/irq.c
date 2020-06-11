@@ -201,6 +201,7 @@ void do_IRQ(struct cpu_user_regs *regs, unsigned int irq, int is_fiq)
     struct irq_desc *desc = irq_to_desc(irq);
     struct irqaction *action;
 
+    vcpu_begin_irq_handler();
     perfc_incr(irqs);
 
     ASSERT(irq >= 16); /* SGIs do not come down this path */
@@ -267,6 +268,7 @@ out:
 out_no_end:
     spin_unlock(&desc->lock);
     irq_exit();
+    vcpu_end_irq_handler();
 }
 
 void release_irq(unsigned int irq, const void *dev_id)

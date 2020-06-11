@@ -916,6 +916,35 @@ void vcpu_unblock(struct vcpu *v)
     vcpu_wake(v);
 }
 
+void vcpu_begin_irq_handler(void)
+{
+    if (is_idle_vcpu(current))
+        return;
+
+    /* XXX: Looks like ASSERT_INTERRUPTS_DISABLED() is available only for x86 */
+    if ( current->irq_nesting++ )
+        return;
+
+    current->irq_entry_time = NOW();
+}
+
+void vcpu_end_irq_handler(void)
+{
+    int delta;
+
+    if (is_idle_vcpu(current))
+        return;
+
+    ASSERT(current->irq_nesting);
+
+    if ( --current->irq_nesting )
+        return;
+
+    /* We assume that irq handling time will not overflow int */
+    delta = NOW() - current->irq_entry_time;
+    atomic_add(delta, &current->sched_unit->irq_time);
+}
+
 /*
  * Do the actual movement of an unit from old to new CPU. Locks for *both*
  * CPUs needs to have been taken already when calling this!
