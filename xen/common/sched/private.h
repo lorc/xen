@@ -61,6 +61,13 @@ struct sched_resource {
 DECLARE_PER_CPU(struct sched_resource *, sched_res);
 extern rcu_read_lock_t sched_res_rculock;
 
+/* Scheduler-agnostic statistics */
+struct sched_stats {
+    s_time_t irq_time;
+    s_time_t hyp_time;
+};
+DECLARE_PER_CPU(struct sched_stats, sched_stats);
+
 static inline struct sched_resource *get_sched_res(unsigned int cpu)
 {
     return rcu_dereference(per_cpu(sched_res, cpu));

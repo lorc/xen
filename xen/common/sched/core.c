@@ -95,6 +95,8 @@ static struct scheduler __read_mostly ops;
 
 static bool scheduler_active;
 
+DEFINE_PER_CPU(struct sched_stats, sched_stats);
+
 static void sched_set_affinity(
     struct sched_unit *unit, const cpumask_t *hard, const cpumask_t *soft);
 
@@ -943,6 +945,8 @@ void vcpu_end_irq_handler(void)
     /* We assume that irq handling time will not overflow int */
     delta = NOW() - current->irq_entry_time;
     atomic_add(delta, &current->sched_unit->irq_time);
+
+    this_cpu(sched_stats).irq_time += delta;
 }
 
 void vcpu_begin_hyp_task(struct vcpu *v)
@@ -974,6 +978,8 @@ void vcpu_end_hyp_task(struct vcpu *v)
     /* We assume that hypervisor task time will not overflow int */
     delta = NOW() - v->hyp_entry_time;
     atomic_add(delta, &v->sched_unit->hyp_time);
+
+    this_cpu(sched_stats).hyp_time += delta;
 
 #ifndef NDEBUG
     v->in_hyp_task = false;
