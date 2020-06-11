@@ -24,6 +24,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <unistd.h>
+#include <xenhypfs.h>
 
 #include "xenstat_priv.h"
 
@@ -99,10 +100,17 @@ xenstat_handle *xenstat_init(void)
 		return NULL;
 	}
 #endif
+	handle->fshndl = xenhypfs_open(NULL, 0);
+	if (!handle->fshndl) {
+		perror("Could not open libxenhypfs.");
+		free(handle);
+		return NULL;
+	}
 
 	handle->xc_handle = xc_interface_open(0,0,0);
 	if (!handle->xc_handle) {
 		perror("xc_interface_open");
+		xenhypfs_close(handle->fshndl);
 		free(handle);
 		return NULL;
 	}
@@ -110,6 +118,7 @@ xenstat_handle *xenstat_init(void)
 	handle->xshandle = xs_daemon_open_readonly(); /* open handle to xenstore*/
 	if (handle->xshandle == NULL) {
 		perror("unable to open xenstore");
+		xenhypfs_close(handle->fshndl);
 		xc_interface_close(handle->xc_handle);
 		free(handle);
 		return NULL;
@@ -124,11 +133,38 @@ void xenstat_uninit(xenstat_handle * handle)
 	if (handle) {
 		for (i = 0; i < NUM_COLLECTORS; i++)
 			collectors[i].uninit(handle);
+		xenhypfs_close(handle->fshndl);
 		xc_interface_close(handle->xc_handle);
 		xs_daemon_close(handle->xshandle);
 		free(handle->priv);
 		free(handle);
 	}
+}
+
+static int xenhypfs_read_uint64(xenhypfs_handle *fshndl, const char *path,
+				uint64_t *val)
+{
+	struct xenhypfs_dirent *dirent;
+	void *buf;
+	int ret;
+
+	buf = xenhypfs_read_raw(fshndl, path, &dirent);
+	if (!buf)
+		return -EIO;
+
+	if (dirent->type != xenhypfs_type_uint ||
+	    dirent->size != 8) {
+		ret = -EDOM;
+		goto out;
+	}
+
+	*val = *(uint64_t*)buf;
+	ret = 0;
+out:
+	free(buf);
+	free(dirent);
+
+	return ret;
 }
 
 xenstat_node *xenstat_get_node(xenstat_handle * handle, unsigned int flags)
@@ -149,11 +185,8 @@ xenstat_node *xenstat_get_node(xenstat_handle * handle, unsigned int flags)
 	node->handle = handle;
 
 	/* Get information about the physical system */
-	if (xc_physinfo(handle->xc_handle, &physinfo) < 0) {
-		free(node);
-		return NULL;
-	}
-
+	if (xc_physinfo(handle->xc_handle, &physinfo) < 0)
+		goto err_free_node;
 
 	node->cpu_hz = ((unsigned long long)physinfo.cpu_khz) * 1000ULL;
         node->num_cpus = physinfo.nr_cpus;
@@ -162,14 +195,19 @@ xenstat_node *xenstat_get_node(xenstat_handle * handle, unsigned int flags)
 	node->free_mem = ((unsigned long long)physinfo.free_pages)
 	    * handle->page_size;
 
+	if (xenhypfs_read_uint64(handle->fshndl, "/scheduler/stats/irq_time",
+				 &node->irq_time))
+		goto err_free_node;
+	if (xenhypfs_read_uint64(handle->fshndl, "/scheduler/stats/hyp_time",
+				 &node->hyp_time))
+		goto err_free_node;
+
 	node->freeable_mb = 0;
 	/* malloc(0) is not portable, so allocate a single domain.  This will
 	 * be resized below. */
 	node->domains = malloc(sizeof(xenstat_domain));
-	if (node->domains == NULL) {
-		free(node);
-		return NULL;
-	}
+	if (node->domains == NULL)
+		goto err_free_node;
 
 	node->num_domains = 0;
 	do {
@@ -252,6 +290,7 @@ xenstat_node *xenstat_get_node(xenstat_handle * handle, unsigned int flags)
 	return node;
 err:
 	free(node->domains);
+err_free_node:
 	free(node);
 	return NULL;
 }
@@ -330,6 +369,16 @@ unsigned int xenstat_node_num_cpus(xenstat_node * node)
 unsigned long long xenstat_node_cpu_hz(xenstat_node * node)
 {
 	return node->cpu_hz;
+}
+
+unsigned long long xenstat_node_irq_time(xenstat_node * node)
+{
+	return node->irq_time;
+}
+
+unsigned long long xenstat_node_hyp_time(xenstat_node * node)
+{
+	return node->hyp_time;
 }
 
 /* Get the domain ID for this domain */

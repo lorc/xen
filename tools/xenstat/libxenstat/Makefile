@@ -32,9 +32,10 @@ OBJECTS-$(CONFIG_FreeBSD) += src/xenstat_freebsd.o
 SONAME_FLAGS=-Wl,$(SONAME_LDFLAG) -Wl,libxenstat.so.$(MAJOR)
 
 CFLAGS+=-fPIC -Werror
-CFLAGS+=-Isrc $(CFLAGS_libxenctrl) $(CFLAGS_libxenstore) $(CFLAGS_xeninclude) -include $(XEN_ROOT)/tools/config.h
+CFLAGS+=-Isrc $(CFLAGS_libxenctrl) $(CFLAGS_libxenstore) $(CFLAGS_xeninclude) $(CFLAGS_libxenhypfs) \
+	-include $(XEN_ROOT)/tools/config.h
 
-LDLIBS-y = $(LDLIBS_libxenstore) $(LDLIBS_libxenctrl) -lyajl
+LDLIBS-y = $(LDLIBS_libxenstore) $(LDLIBS_libxenctrl) $(LDLIBS_libxenhypfs) -lyajl
 LDLIBS-$(CONFIG_SunOS) += -lkstat
 
 PKG_CONFIG := xenstat.pc

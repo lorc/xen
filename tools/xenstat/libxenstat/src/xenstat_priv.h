@@ -32,9 +32,12 @@
 #define SHORT_ASC_LEN 5                 /* length of 65535 */
 #define VERSION_SIZE (2 * SHORT_ASC_LEN + 1 + sizeof(xen_extraversion_t) + 1)
 
+typedef struct xenhypfs_handle xenhypfs_handle;
+
 struct xenstat_handle {
 	xc_interface *xc_handle;
 	struct xs_handle *xshandle; /* xenstore handle */
+	xenhypfs_handle *fshndl; 	/* xenhypfs handle */
 	int page_size;
 	void *priv;
 	char xen_version[VERSION_SIZE]; /* xen version running on this node */
@@ -48,6 +51,8 @@ struct xenstat_node {
 	unsigned long long tot_mem;
 	unsigned long long free_mem;
 	unsigned int num_domains;
+	uint64_t irq_time;
+	uint64_t hyp_time;
 	xenstat_domain *domains;	/* Array of length num_domains */
 	long freeable_mb;
 };
