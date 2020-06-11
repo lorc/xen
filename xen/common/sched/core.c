@@ -980,6 +980,16 @@ void vcpu_end_hyp_task(struct vcpu *v)
 #endif
 }
 
+s_time_t sched_get_time_correction(struct sched_unit *u)
+{
+    int irq_time, hyp_time;
+
+    irq_time = atomic_xchg(&u->irq_time, 0);
+    hyp_time = atomic_xchg(&u->hyp_time, 0);
+
+    return irq_time + hyp_time;
+}
+
 /*
  * Do the actual movement of an unit from old to new CPU. Locks for *both*
  * CPUs needs to have been taken already when calling this!

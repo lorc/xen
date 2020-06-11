@@ -1860,7 +1860,7 @@ void burn_credits(struct csched2_runqueue_data *rqd,
         return;
     }
 
-    delta = now - svc->start_time;
+    delta = now - svc->start_time - sched_get_time_correction(svc->unit);
 
     if ( unlikely(delta <= 0) )
     {

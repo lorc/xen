@@ -605,4 +605,14 @@ void cpupool_put(struct cpupool *pool);
 int cpupool_add_domain(struct domain *d, int poolid);
 void cpupool_rm_domain(struct domain *d);
 
+/*
+ * Get amount of time spent doing non-guest related work on
+ * current scheduling unit. This includes time spent in soft IRQs
+ * and in hardware interrupt handlers.
+ *
+ * Call to this function resets the counters, so it is supposed to
+ * be called when scheduler calculates time used by the scheduling
+ * unit.
+ */
+s_time_t sched_get_time_correction(struct sched_unit *u);
 #endif /* __XEN_SCHED_IF_H__ */
