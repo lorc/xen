@@ -239,7 +239,12 @@ struct vcpu
 
     /* Fair scheduling state */
     uint64_t         irq_entry_time;
+    uint64_t         hyp_entry_time;
     unsigned int     irq_nesting;
+#ifndef NDEBUG
+    bool             in_hyp_task;
+#endif
+
     /* Tasklet for continue_hypercall_on_cpu(). */
     struct tasklet   continue_hypercall_tasklet;
 
@@ -279,8 +284,9 @@ struct sched_unit {
     /* Vcpu state summary. */
     unsigned int           runstate_cnt[4];
 
-    /* Fair scheduling correction value */
+    /* Fair scheduling correction values */
     atomic_t               irq_time;
+    atomic_t               hyp_time;
 
     /* Bitmask of CPUs on which this VCPU may run. */
     cpumask_var_t          cpu_hard_affinity;
@@ -702,6 +708,14 @@ void vcpu_sleep_sync(struct vcpu *v);
  */
 void vcpu_begin_irq_handler(void);
 void vcpu_end_irq_handler(void);
+
+/*
+ * Report to scheduler when we are doing housekeeping tasks on the
+ * current vcpu. This is called during do_softirq() but can be called
+ * anywhere else.
+ */
+void vcpu_begin_hyp_task(struct vcpu *v);
+void vcpu_end_hyp_task(struct vcpu *v);
 
 /*
  * Force synchronisation of given VCPU's state. If it is currently descheduled,

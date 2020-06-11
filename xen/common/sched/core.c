@@ -945,6 +945,37 @@ void vcpu_end_irq_handler(void)
     atomic_add(delta, &current->sched_unit->irq_time);
 }
 
+void vcpu_begin_hyp_task(struct vcpu *v)
+{
+    if ( is_idle_vcpu(v) )
+        return;
+
+    ASSERT(!v->in_hyp_task);
+
+    v->hyp_entry_time = NOW();
+#ifndef NDEBUG
+    v->in_hyp_task = true;
+#endif
+}
+
+void vcpu_end_hyp_task(struct vcpu *v)
+{
+    int delta;
+
+    if ( is_idle_vcpu(v) )
+        return;
+
+    ASSERT(v->in_hyp_task);
+
+    /* We assume that hypervisor task time will not overflow int */
+    delta = NOW() - v->hyp_entry_time;
+    atomic_add(delta, &v->sched_unit->hyp_time);
+
+#ifndef NDEBUG
+    v->in_hyp_task = false;
+#endif
+}
+
 /*
  * Do the actual movement of an unit from old to new CPU. Locks for *both*
  * CPUs needs to have been taken already when calling this!
@@ -2615,6 +2646,7 @@ static void schedule(void)
 
     SCHED_STAT_CRANK(sched_run);
 
+    vcpu_end_hyp_task(current);
     rcu_read_lock(&sched_res_rculock);
 
     lock = pcpu_schedule_lock_irq(cpu);
