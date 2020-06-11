@@ -1895,6 +1895,7 @@ void do_IRQ(struct cpu_user_regs *regs)
     int               irq = this_cpu(vector_irq)[vector];
     struct cpu_user_regs *old_regs = set_irq_regs(regs);
 
+    vcpu_begin_irq_handler();
     perfc_incr(irqs);
     this_cpu(irq_count)++;
     irq_enter();
@@ -2024,6 +2025,7 @@ void do_IRQ(struct cpu_user_regs *regs)
  out_no_unlock:
     irq_exit();
     set_irq_regs(old_regs);
+    vcpu_end_irq_handler();
 }
 
 static inline bool is_free_pirq(const struct domain *d,
