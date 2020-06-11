@@ -717,6 +717,8 @@ void vcpu_end_irq_handler(void);
 void vcpu_begin_hyp_task(struct vcpu *v);
 void vcpu_end_hyp_task(struct vcpu *v);
 
+void sched_get_time_stats(uint64_t *irq_time, uint64_t *hyp_time);
+
 /*
  * Force synchronisation of given VCPU's state. If it is currently descheduled,
  * this call will ensure that all its state is committed to memory and that

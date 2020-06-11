@@ -95,6 +95,10 @@ static struct scheduler __read_mostly ops;
 
 static bool scheduler_active;
 
+static DEFINE_SPINLOCK(sched_stat_lock);
+s_time_t sched_stat_irq_time;
+s_time_t sched_stat_hyp_time;
+
 static void sched_set_affinity(
     struct sched_unit *unit, const cpumask_t *hard, const cpumask_t *soft);
 
@@ -994,9 +998,22 @@ s_time_t sched_get_time_correction(struct sched_unit *u)
             break;
     }
 
+    spin_lock_irqsave(&sched_stat_lock, flags);
+    sched_stat_irq_time += irq;
+    sched_stat_hyp_time += hyp;
+    spin_unlock_irqrestore(&sched_stat_lock, flags);
+
     return irq + hyp;
 }
 
+void sched_get_time_stats(uint64_t *irq_time, uint64_t *hyp_time)
+{
+    unsigned long flags;
+
+    spin_lock_irqsave(&sched_stat_lock, flags);
+    *irq_time = sched_stat_irq_time;
+    *hyp_time = sched_stat_hyp_time;
+    spin_unlock_irqrestore(&sched_stat_lock, flags);
 }
 
 /*

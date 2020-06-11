@@ -270,6 +270,7 @@ long do_sysctl(XEN_GUEST_HANDLE_PARAM(xen_sysctl_t) u_sysctl)
         pi->scrub_pages = 0;
         pi->cpu_khz = cpu_khz;
         pi->max_mfn = get_upper_mfn_bound();
+        sched_get_time_stats(&pi->irq_time, &pi->hyp_time);
         arch_do_physinfo(pi);
         if ( iommu_enabled )
         {
