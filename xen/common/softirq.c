@@ -71,7 +71,9 @@ void process_pending_softirqs(void)
 void do_softirq(void)
 {
     ASSERT_NOT_IN_ATOMIC();
+    vcpu_begin_hyp_task(current);
     __do_softirq(0);
+    vcpu_end_hyp_task(current);
 }
 
 void open_softirq(int nr, softirq_handler handler)
