@@ -104,6 +104,7 @@ static inline void hypfs_string_set_reference(struct hypfs_entry_leaf *leaf,
 
 extern struct hypfs_entry_dir hypfs_root;
 
+int hypfs_add_entry(struct hypfs_entry_dir *parent, struct hypfs_entry *new);
 int hypfs_add_dir(struct hypfs_entry_dir *parent,
                   struct hypfs_entry_dir *dir, bool nofault);
 int hypfs_add_leaf(struct hypfs_entry_dir *parent,

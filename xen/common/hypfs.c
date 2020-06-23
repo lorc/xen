@@ -69,7 +69,7 @@ static void hypfs_unlock(void)
     }
 }
 
-static int add_entry(struct hypfs_entry_dir *parent, struct hypfs_entry *new)
+int hypfs_add_entry(struct hypfs_entry_dir *parent, struct hypfs_entry *new)
 {
     int ret = -ENOENT;
     struct hypfs_entry *e;
@@ -116,7 +116,7 @@ int hypfs_add_dir(struct hypfs_entry_dir *parent,
 {
     int ret;
 
-    ret = add_entry(parent, &dir->e);
+    ret = hypfs_add_entry(parent, &dir->e);
     BUG_ON(nofault && ret);
 
     return ret;
@@ -130,7 +130,7 @@ int hypfs_add_leaf(struct hypfs_entry_dir *parent,
     if ( !leaf->u.content )
         ret = -EINVAL;
     else
-        ret = add_entry(parent, &leaf->e);
+        ret = hypfs_add_entry(parent, &leaf->e);
     BUG_ON(nofault && ret);
 
     return ret;
