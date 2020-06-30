@@ -20,13 +20,13 @@ SEABIOSLD ?= $(LD)
 SEABIOS_EXTRAVERSION ?= "-Xen"
 
 ovmf-dir:
-	GIT=$(GIT) $(XEN_ROOT)/scripts/git-checkout.sh $(OVMF_UPSTREAM_URL) $(OVMF_UPSTREAM_REVISION) ovmf-dir
+	GIT="$(GIT)" $(XEN_ROOT)/scripts/git-checkout.sh $(OVMF_UPSTREAM_URL) $(OVMF_UPSTREAM_REVISION) ovmf-dir
 	cp ovmf-makefile ovmf-dir/Makefile;
 
 seabios-dir:
-	GIT=$(GIT) $(XEN_ROOT)/scripts/git-checkout.sh $(SEABIOS_UPSTREAM_URL) $(SEABIOS_UPSTREAM_REVISION) seabios-dir
+	GIT="$(GIT)" $(XEN_ROOT)/scripts/git-checkout.sh $(SEABIOS_UPSTREAM_URL) $(SEABIOS_UPSTREAM_REVISION) seabios-dir
 	cp seabios-config seabios-dir/.config;
-	$(MAKE) -C seabios-dir olddefconfig CC=$(SEABIOSCC) LD=$(SEABIOSLD)
+	$(MAKE) -C seabios-dir olddefconfig CC="$(SEABIOSCC)" LD=$(SEABIOSLD)
 	rm -f seabios-dir/.version
 	echo '$(SEABIOS_UPSTREAM_REVISION)' > seabios-dir/.version
 
@@ -41,7 +41,7 @@ ifeq ($(CONFIG_ROMBIOS),y)
 	false ; \
 	fi
 endif
-	$(MAKE) CC=$(CC) PYTHON=$(PYTHON) subdirs-$@
+	$(MAKE) CC="$(CC)" PYTHON=$(PYTHON) subdirs-$@
 
 .PHONY: install
 install: all
@@ -119,7 +119,7 @@ seabios-dir-force-update: seabios-dir
 
 subdir-clean-seabios-dir:
 	set -e; if test -d seabios-dir/.; then \
-		$(MAKE) -C seabios-dir CC=$(SEABIOSCC) LD=$(SEABIOSLD) clean; \
+		$(MAKE) -C seabios-dir CC="$(SEABIOSCC)" LD=$(SEABIOSLD) clean; \
 	fi
 
 subtree-force-update:
@@ -135,4 +135,4 @@ subtree-force-update-all:
 	$(MAKE) ovmf-dir-force-update
 
 subdir-all-seabios-dir: seabios-dir
-	$(MAKE) -C $< CC=$(SEABIOSCC) LD=$(SEABIOSLD) PYTHON=$(PYTHON) EXTRAVERSION=$(SEABIOS_EXTRAVERSION) all;
+	$(MAKE) -C $< CC="$(SEABIOSCC)" LD=$(SEABIOSLD) PYTHON=$(PYTHON) EXTRAVERSION=$(SEABIOS_EXTRAVERSION) all;

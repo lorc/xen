@@ -225,7 +225,7 @@ INSTALL_PYTHON_PROG = \
 
 headers.chk:
 	for i in $(filter %.h,$^); do \
-	    $(CC) -x c -ansi -Wall -Werror $(CFLAGS_xeninclude) \
+	    $(CC) $(CFLAGS) -x c -ansi -Wall -Werror $(CFLAGS_xeninclude) \
 	          -S -o /dev/null $$i || exit 1; \
 	    echo $$i; \
 	done >$@.new
