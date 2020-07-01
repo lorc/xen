@@ -331,6 +331,7 @@ static void continue_new_vcpu(struct vcpu *prev)
     processor_vcpu_initialise(current);
 
     schedule_tail(prev);
+    vcpu_end_hyp_task(current);
 
     if ( is_idle_vcpu(current) )
         reset_stack_and_jump(idle_loop);
@@ -354,6 +355,8 @@ void context_switch(struct vcpu *prev, struct vcpu *next)
 
     set_current(next);
 
+    vcpu_begin_hyp_task(current);
+
     prev = __context_switch(prev, next);
 
     schedule_tail(prev);
@@ -361,7 +364,7 @@ void context_switch(struct vcpu *prev, struct vcpu *next)
 
 void continue_running(struct vcpu *same)
 {
-    /* Nothing to do */
+    vcpu_begin_hyp_task(current);
 }
 
 void sync_local_execstate(void)
