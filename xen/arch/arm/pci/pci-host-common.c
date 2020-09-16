@@ -256,9 +256,6 @@ pci_host_common_probe(struct dt_device_node *dev,
     struct pci_config_window *cfg;
     int err;
 
-    if ( dt_device_for_passthrough(dev) )
-        return 0;
-
     bridge = pci_alloc_host_bridge();
     if ( !bridge )
         return ERR_PTR(-ENOMEM);
