@@ -707,6 +707,38 @@ static int make_gicv2_node(libxl__gc *gc, void *fdt,
     return 0;
 }
 
+static int make_gicv3_its_node(libxl__gc *gc, void *fdt)
+{
+    int res;
+    const uint64_t its_base = GUEST_GICV3_ITS_BASE;
+    const uint64_t its_size = GUEST_GICV3_ITS_SIZE;
+    const char *name = GCSPRINTF("its@%"PRIx64, its_base);
+
+    res = fdt_begin_node(fdt, name);
+    if (res) return res;
+
+    res = fdt_property_string(fdt, "compatible", "arm,gic-v3-its");
+    if ( res ) return res;
+
+    res = fdt_property(fdt, "msi-controller", NULL, 0);
+    if ( res ) return res;
+
+    res = fdt_property_regs(gc, fdt,
+                            GUEST_ROOT_ADDRESS_CELLS, GUEST_ROOT_SIZE_CELLS,
+                            1,
+                            its_base, its_size);
+    if (res) return res;
+
+    res = fdt_property_cell(fdt, "phandle", GUEST_PHANDLE_ITS);
+    if (res) return res;
+
+    res = fdt_end_node(fdt);
+    if (res) return res;
+
+    return 0;
+
+}
+
 static int make_gicv3_node(libxl__gc *gc, void *fdt)
 {
     int res;
@@ -725,7 +757,13 @@ static int make_gicv3_node(libxl__gc *gc, void *fdt)
     res = fdt_property_cell(fdt, "#interrupt-cells", 3);
     if (res) return res;
 
-    res = fdt_property_cell(fdt, "#address-cells", 0);
+    res = fdt_property_cell(fdt, "#address-cells", 2);
+    if (res) return res;
+
+    res = fdt_property_cell(fdt, "#size-cells", 2);
+    if (res) return res;
+
+    res = fdt_property(fdt, "ranges", NULL, 0);
     if (res) return res;
 
     res = fdt_property(fdt, "interrupt-controller", NULL, 0);
@@ -741,6 +779,9 @@ static int make_gicv3_node(libxl__gc *gc, void *fdt)
     if (res) return res;
 
     res = fdt_property_cell(fdt, "phandle", GUEST_PHANDLE_GIC);
+    if (res) return res;
+
+    res = make_gicv3_its_node(gc, fdt);
     if (res) return res;
 
     res = fdt_end_node(fdt);
@@ -891,6 +932,10 @@ static int make_vpci_node(libxl__gc *gc, void *fdt,
         GUEST_VPCI_ADDR_TYPE_MEM, GUEST_VPCI_MEM_ADDR, GUEST_VPCI_MEM_SIZE,
         GUEST_VPCI_ADDR_TYPE_PREFETCH_MEM, GUEST_VPCI_PREFETCH_MEM_ADDR,
         GUEST_VPCI_PREFETCH_MEM_SIZE);
+    if (res) return res;
+
+    res = fdt_property_values(gc, fdt, "msi-map", 4, 0, GUEST_PHANDLE_ITS,
+                              0, 0x10000);
     if (res) return res;
 
     res = fdt_end_node(fdt);
