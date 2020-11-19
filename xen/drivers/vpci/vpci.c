@@ -63,10 +63,24 @@ void vpci_remove_device(struct pci_dev *pdev)
     pdev->vpci = NULL;
 }
 
-int vpci_add_handlers(struct pci_dev *pdev)
+static int run_vpci_init(struct pci_dev *pdev)
 {
     unsigned int i;
     int rc = 0;
+
+    for ( i = 0; i < NUM_VPCI_INIT; i++ )
+    {
+        rc = __start_vpci_array[i](pdev);
+        if ( rc )
+            break;
+    }
+
+    return rc;
+}
+
+int vpci_add_handlers(struct pci_dev *pdev)
+{
+    int rc;
 
     if ( !has_vpci(pdev->domain) )
         return 0;
@@ -81,18 +95,45 @@ int vpci_add_handlers(struct pci_dev *pdev)
     INIT_LIST_HEAD(&pdev->vpci->handlers);
     spin_lock_init(&pdev->vpci->lock);
 
-    for ( i = 0; i < NUM_VPCI_INIT; i++ )
-    {
-        rc = __start_vpci_array[i](pdev);
-        if ( rc )
-            break;
-    }
-
+    rc = run_vpci_init(pdev);
     if ( rc )
         vpci_remove_device(pdev);
 
     return rc;
 }
+
+#ifdef CONFIG_HAS_VPCI_GUEST_SUPPORT
+/* Notify vPCI that device is assigned to guest. */
+int vpci_assign_device(struct domain *d, struct pci_dev *pdev)
+{
+    int rc;
+
+    /* It only makes sense to assign for hwdom or guest domain. */
+    if ( is_system_domain(d) || !has_vpci(d) )
+        return 0;
+
+    vpci_remove_device_handlers(pdev);
+
+    rc = run_vpci_init(pdev);
+    if ( rc )
+        vpci_deassign_device(d, pdev);
+
+    return rc;
+}
+
+/* Notify vPCI that device is de-assigned from guest. */
+int vpci_deassign_device(struct domain *d, struct pci_dev *pdev)
+{
+    /* It only makes sense to de-assign from hwdom or guest domain. */
+    if ( is_system_domain(d) || !has_vpci(d) )
+        return 0;
+
+    vpci_remove_device_handlers(pdev);
+
+    return 0;
+}
+#endif /* CONFIG_HAS_VPCI_GUEST_SUPPORT */
+
 #endif /* __XEN__ */
 
 static int vpci_register_cmp(const struct vpci_register *r1,
