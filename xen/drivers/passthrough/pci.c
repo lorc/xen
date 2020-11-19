@@ -757,7 +757,7 @@ int pci_add_device(u16 seg, u8 bus, u8 devfn,
          * For devices not discovered by Xen during boot, add vPCI handlers
          * when Dom0 first informs Xen about such devices.
          */
-        ret = vpci_add_handlers(pdev);
+        ret = vpci_assign_device(pdev);
         if ( ret )
         {
             printk(XENLOG_ERR "Setup of vPCI failed: %d\n", ret);
@@ -771,7 +771,7 @@ int pci_add_device(u16 seg, u8 bus, u8 devfn,
         if ( ret )
         {
             write_lock(&hardware_domain->pci_lock);
-            vpci_remove_device(pdev);
+            vpci_deassign_device(pdev);
             list_del(&pdev->domain_list);
             write_unlock(&hardware_domain->pci_lock);
             pdev->domain = NULL;
@@ -819,7 +819,7 @@ int pci_remove_device(u16 seg, u8 bus, u8 devfn)
     list_for_each_entry ( pdev, &pseg->alldevs_list, alldevs_list )
         if ( pdev->bus == bus && pdev->devfn == devfn )
         {
-            vpci_remove_device(pdev);
+            vpci_deassign_device(pdev);
             pci_cleanup_msi(pdev);
             ret = iommu_remove_device(pdev);
             if ( pdev->domain )
@@ -875,6 +875,13 @@ static int deassign_device(struct domain *d, uint16_t seg, uint8_t bus,
                          pci_to_dev(pdev));
         if ( ret )
             goto out;
+    }
+
+    if ( IS_ENABLED(CONFIG_HAS_VPCI_GUEST_SUPPORT) )
+    {
+        write_lock(&d->pci_lock);
+        vpci_deassign_device(pdev);
+        write_unlock(&d->pci_lock);
     }
 
     devfn = pdev->devfn;
@@ -1147,7 +1154,7 @@ static void __hwdom_init setup_one_hwdom_device(const struct setup_hwdom *ctxt,
               PCI_SLOT(devfn) == PCI_SLOT(pdev->devfn) );
 
     write_lock(&ctxt->d->pci_lock);
-    err = vpci_add_handlers(pdev);
+    err = vpci_assign_device(pdev);
     write_unlock(&ctxt->d->pci_lock);
     if ( err )
         printk(XENLOG_ERR "setup of vPCI for d%d failed: %d\n",
@@ -1481,6 +1488,13 @@ static int assign_device(struct domain *d, u16 seg, u8 bus, u8 devfn, u32 flag)
     if ( pdev->broken && d != hardware_domain && d != dom_io )
         goto done;
 
+    if ( IS_ENABLED(CONFIG_HAS_VPCI_GUEST_SUPPORT) )
+    {
+        write_lock(&pdev->domain->pci_lock);
+        vpci_deassign_device(pdev);
+        write_unlock(&pdev->domain->pci_lock);
+    }
+
     rc = pdev_msix_assign(d, pdev);
     if ( rc )
         goto done;
@@ -1505,6 +1519,15 @@ static int assign_device(struct domain *d, u16 seg, u8 bus, u8 devfn, u32 flag)
             break;
         rc = iommu_call(hd->platform_ops, assign_device, d, devfn,
                         pci_to_dev(pdev), flag);
+    }
+    if ( rc )
+        goto done;
+
+    if ( IS_ENABLED(CONFIG_HAS_VPCI_GUEST_SUPPORT) && d != dom_io)
+    {
+        write_lock(&d->pci_lock);
+        rc = vpci_assign_device(pdev);
+        write_unlock(&d->pci_lock);
     }
 
  done:
