@@ -30,6 +30,10 @@
 
 struct map_data {
     struct domain *d;
+    /* Start address of the BAR as seen by the guest. */
+    gfn_t start_gfn;
+    /* Physical start address of the BAR. */
+    mfn_t start_mfn;
     bool map;
 };
 
@@ -37,12 +41,24 @@ static int map_range(unsigned long s, unsigned long e, void *data,
                      unsigned long *c)
 {
     const struct map_data *map = data;
+    gfn_t start_gfn;
     int rc;
 
     for ( ; ; )
     {
         unsigned long size = e - s + 1;
 
+        /*
+         * Ranges to be mapped don't always start at the BAR start address, as
+         * there can be holes or partially consumed ranges. Account for the
+         * offset of the current address from the BAR start.
+         */
+        start_gfn = gfn_add(map->start_gfn, s - mfn_x(map->start_mfn));
+
+        gdprintk(XENLOG_G_DEBUG,
+                 "%smap [%lx, %lx] -> %#"PRI_gfn" for %pd\n",
+                 map->map ? "" : "un", s, e, gfn_x(start_gfn),
+                 map->d);
         /*
          * ARM TODOs:
          * - On ARM whether the memory is prefetchable or not should be passed
@@ -52,8 +68,10 @@ static int map_range(unsigned long s, unsigned long e, void *data,
          * - {un}map_mmio_regions doesn't support preemption.
          */
 
-        rc = map->map ? map_mmio_regions(map->d, _gfn(s), size, _mfn(s))
-                      : unmap_mmio_regions(map->d, _gfn(s), size, _mfn(s));
+        rc = map->map ? map_mmio_regions(map->d, start_gfn,
+                                         size, _mfn(s))
+                      : unmap_mmio_regions(map->d, start_gfn,
+                                           size, _mfn(s));
         if ( rc == 0 )
         {
             *c += size;
@@ -62,8 +80,8 @@ static int map_range(unsigned long s, unsigned long e, void *data,
         if ( rc < 0 )
         {
             printk(XENLOG_G_WARNING
-                   "Failed to identity %smap [%lx, %lx] for d%d: %d\n",
-                   map->map ? "" : "un", s, e, map->d->domain_id, rc);
+                   "Failed to identity %smap [%lx, %lx] for %pd: %d\n",
+                   map->map ? "" : "un", s, e, map->d, rc);
             break;
         }
         ASSERT(rc < size);
@@ -149,6 +167,10 @@ bool vpci_process_pending(struct vcpu *v)
             if ( rangeset_is_empty(bar->mem) )
                 continue;
 
+            data.start_gfn =
+                 _gfn(PFN_DOWN(is_hardware_domain(v->domain)
+                               ? bar->addr : bar->guest_addr));
+            data.start_mfn = _mfn(PFN_DOWN(bar->addr));
             rc = rangeset_consume_ranges(bar->mem, map_range, &data);
 
             if ( rc == -ERESTART )
@@ -223,6 +245,9 @@ static int __init apply_map(struct domain *d, const struct pci_dev *pdev,
         if ( rangeset_is_empty(bar->mem) )
             continue;
 
+        data.start_gfn = _gfn(PFN_DOWN(is_hardware_domain(d)
+                                       ? bar->addr : bar->guest_addr));
+        data.start_mfn = _mfn(PFN_DOWN(bar->addr));
         while ( (rc = rangeset_consume_ranges(bar->mem, map_range,
                                               &data)) == -ERESTART )
             process_pending_softirqs();
