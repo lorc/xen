@@ -55,7 +55,12 @@ void vpci_remove_device_handlers(const struct pci_dev *pdev)
 
 void vpci_remove_device(struct pci_dev *pdev)
 {
+    struct vpci_header *header = &pdev->vpci->header;
+    unsigned int i;
+
     vpci_cancel_pending(pdev);
+    for ( i = 0; i < ARRAY_SIZE(header->bars); i++ )
+        rangeset_destroy(header->bars[i].mem);
     vpci_remove_device_handlers(pdev);
     xfree(pdev->vpci->msix);
     xfree(pdev->vpci->msi);
@@ -80,6 +85,8 @@ static int run_vpci_init(struct pci_dev *pdev)
 
 int vpci_add_handlers(struct pci_dev *pdev)
 {
+    struct vpci_header *header;
+    unsigned int i;
     int rc;
 
     if ( !has_vpci(pdev->domain) )
@@ -95,10 +102,25 @@ int vpci_add_handlers(struct pci_dev *pdev)
     INIT_LIST_HEAD(&pdev->vpci->handlers);
     spin_lock_init(&pdev->vpci->lock);
 
-    rc = run_vpci_init(pdev);
-    if ( rc )
-        vpci_remove_device(pdev);
+    header = &pdev->vpci->header;
+    for ( i = 0; i < ARRAY_SIZE(header->bars); i++ )
+    {
+        struct vpci_bar *bar = &header->bars[i];
 
+        bar->mem = rangeset_new(NULL, NULL, 0);
+        if ( !bar->mem )
+        {
+            rc = -ENOMEM;
+            goto fail;
+        }
+    }
+
+    rc = run_vpci_init(pdev);
+    if ( !rc )
+        return 0;
+
+ fail:
+    vpci_remove_device(pdev);
     return rc;
 }
 
