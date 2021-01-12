@@ -459,8 +459,7 @@ static void cmd_write(const struct pci_dev *pdev, unsigned int reg,
         pci_conf_write16(pdev->sbdf, reg, cmd);
 }
 
-static void guest_cmd_write(const struct pci_dev *pdev, unsigned int reg,
-                            uint32_t cmd, void *data)
+static uint32_t emulate_cmd_reg(const struct pci_dev *pdev, uint32_t cmd)
 {
     /* TODO: Add proper emulation for all bits of the command register. */
 
@@ -472,7 +471,13 @@ static void guest_cmd_write(const struct pci_dev *pdev, unsigned int reg,
     }
 #endif
 
-    cmd_write(pdev, reg, cmd, data);
+    return cmd;
+}
+
+static void guest_cmd_write(const struct pci_dev *pdev, unsigned int reg,
+                            uint32_t cmd, void *data)
+{
+    cmd_write(pdev, reg, emulate_cmd_reg(pdev, cmd), data);
 }
 
 static void bar_write(const struct pci_dev *pdev, unsigned int reg,
@@ -645,6 +650,10 @@ static int init_bars(struct pci_dev *pdev)
     default:
         return -EOPNOTSUPP;
     }
+
+    /* Reset the command register for the guest. */
+    if ( !is_hwdom )
+        pci_conf_write16(pdev->sbdf, PCI_COMMAND, emulate_cmd_reg(pdev, 0));
 
     /* Setup a handler for the command register. */
     rc = vpci_add_register(pdev->vpci, vpci_hw_read16,
