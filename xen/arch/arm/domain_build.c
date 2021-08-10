@@ -10,7 +10,6 @@
 #include <asm/regs.h>
 #include <xen/errno.h>
 #include <xen/err.h>
-#include <xen/device_tree.h>
 #include <xen/libfdt/libfdt.h>
 #include <xen/guest_access.h>
 #include <xen/iocap.h>
@@ -50,12 +49,6 @@ static int __init parse_dom0_mem(const char *s)
     return *s ? -EINVAL : 0;
 }
 custom_param("dom0_mem", parse_dom0_mem);
-
-struct map_range_data
-{
-    struct domain *d;
-    p2m_type_t p2mt;
-};
 
 /* Override macros from asm/page.h to make them work with mfn_t */
 #undef virt_to_mfn
@@ -1676,10 +1669,10 @@ static int __init map_dt_irq_to_domain(const struct dt_device_node *dev,
                                        const struct dt_irq *dt_irq,
                                        void *data)
 {
-    struct domain *d = data;
+    struct map_range_data *mr_data = data;
+    struct domain *d = mr_data->d;
     unsigned int irq = dt_irq->irq;
     int res;
-    bool need_mapping = !dt_device_for_passthrough(dev);
 
     if ( irq < NR_LOCAL_IRQS )
     {
@@ -1698,18 +1691,16 @@ static int __init map_dt_irq_to_domain(const struct dt_device_node *dev,
         return res;
     }
 
-    res = map_irq_to_domain(d, irq, need_mapping, dt_node_name(dev));
+    res = map_irq_to_domain(d, irq, !mr_data->skip_mapping, dt_node_name(dev));
 
     return 0;
 }
 
-static int __init map_range_to_domain(const struct dt_device_node *dev,
-                                      u64 addr, u64 len,
-                                      void *data)
+int __init map_range_to_domain(const struct dt_device_node *dev,
+                               u64 addr, u64 len, void *data)
 {
     struct map_range_data *mr_data = data;
     struct domain *d = mr_data->d;
-    bool need_mapping = !dt_device_for_passthrough(dev);
     int res;
 
     res = iomem_permit_access(d, paddr_to_pfn(addr),
@@ -1723,7 +1714,7 @@ static int __init map_range_to_domain(const struct dt_device_node *dev,
         return res;
     }
 
-    if ( need_mapping )
+    if ( !mr_data->skip_mapping )
     {
         res = map_regions_p2mt(d,
                                gaddr_to_gfn(addr),
@@ -1752,23 +1743,21 @@ static int __init map_range_to_domain(const struct dt_device_node *dev,
  * then we may need to perform additional mappings in order to make
  * the child resources available to domain 0.
  */
-static int __init map_device_children(struct domain *d,
-                                      const struct dt_device_node *dev,
-                                      p2m_type_t p2mt)
+static int __init map_device_children(const struct dt_device_node *dev,
+                                      struct map_range_data *mr_data)
 {
-    struct map_range_data mr_data = { .d = d, .p2mt = p2mt };
-    int ret;
-
     if ( dt_device_type_is_equal(dev, "pci") )
     {
+        int ret;
+
         dt_dprintk("Mapping children of %s to guest\n",
                    dt_node_full_name(dev));
 
-        ret = dt_for_each_irq_map(dev, &map_dt_irq_to_domain, d);
+        ret = dt_for_each_irq_map(dev, &map_dt_irq_to_domain, mr_data);
         if ( ret < 0 )
             return ret;
 
-        ret = dt_for_each_range(dev, &map_range_to_domain, &mr_data);
+        ret = dt_for_each_range(dev, &map_range_to_domain, mr_data);
         if ( ret < 0 )
             return ret;
     }
@@ -1848,14 +1837,28 @@ static int __init handle_device(struct domain *d, struct dt_device_node *dev,
     unsigned int i;
     int res;
     u64 addr, size;
-    bool need_mapping = !dt_device_for_passthrough(dev);
+    bool own_device = !dt_device_for_passthrough(dev);
+    /*
+     * For PCI passthrough we only need to remap to Dom0 the interrupts
+     * and memory ranges from "reg" property which cover controller's
+     * configuration registers and such. PCIe configuration space registers
+     * of the PCIe Root Complex and PCIe aperture should not be mapped
+     * automatically to Dom0.
+     */
+    struct map_range_data mr_data = {
+        .d = d,
+        .p2mt = p2mt,
+        .skip_mapping = !own_device ||
+                        (is_pci_passthrough_enabled() &&
+                        (device_get_class(dev) == DEVICE_PCI_HOSTBRIDGE))
+    };
 
     naddr = dt_number_of_address(dev);
 
     dt_dprintk("%s passthrough = %d naddr = %u\n",
-               dt_node_full_name(dev), need_mapping, naddr);
+               dt_node_full_name(dev), own_device, naddr);
 
-    if ( need_mapping )
+    if ( own_device )
     {
         dt_dprintk("Check if %s is behind the IOMMU and add it\n",
                    dt_node_full_name(dev));
@@ -1881,14 +1884,13 @@ static int __init handle_device(struct domain *d, struct dt_device_node *dev,
         }
     }
 
-    res = handle_device_interrupts(d, dev, need_mapping);
+    res = handle_device_interrupts(d, dev, own_device);
     if ( res < 0 )
         return res;
 
     /* Give permission and map MMIOs */
     for ( i = 0; i < naddr; i++ )
     {
-        struct map_range_data mr_data = { .d = d, .p2mt = p2mt };
         res = dt_device_get_address(dev, i, &addr, &size);
         if ( res )
         {
@@ -1902,7 +1904,7 @@ static int __init handle_device(struct domain *d, struct dt_device_node *dev,
             return res;
     }
 
-    res = map_device_children(d, dev, p2mt);
+    res = map_device_children(dev, &mr_data);
     if ( res )
         return res;
 
@@ -3061,7 +3063,14 @@ static int __init construct_dom0(struct domain *d)
         return rc;
 
     if ( acpi_disabled )
+    {
         rc = prepare_dtb_hwdom(d, &kinfo);
+        if ( rc < 0 )
+            return rc;
+#ifdef CONFIG_HAS_PCI
+        rc = pci_host_bridge_mappings(d);
+#endif
+    }
     else
         rc = prepare_acpi(d, &kinfo);
 
