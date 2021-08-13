@@ -8,6 +8,11 @@ config ARM_64
 	select 64BIT
 	select ARM_EFI
 	select HAS_FAST_MULTIPLY
+	select HAS_PCI
+	select HAS_VPCI
+	select LATE_HWDOM
+	select ARM_SMMU_V3
+	select HAS_VPCI_GUEST_SUPPORT
 
 config ARM
 	def_bool y
@@ -50,6 +55,7 @@ config GICV3
 config HAS_ITS
         bool "GICv3 ITS MSI controller support (UNSUPPORTED)" if UNSUPPORTED
         depends on GICV3 && !NEW_VGIC
+        default y
 
 config HVM
         def_bool y
