@@ -8,6 +8,11 @@ config ARM_64
 	depends on !ARM_32
 	select 64BIT
 	select HAS_FAST_MULTIPLY
+	select HAS_PCI
+	select HAS_VPCI
+	select LATE_HWDOM
+	select ARM_SMMU_V3
+	select HAS_VPCI_GUEST_SUPPORT
 
 config ARM
 	def_bool y
@@ -108,7 +113,7 @@ config GICV3
 
 config HAS_ITS
         bool "GICv3 ITS MSI controller support (UNSUPPORTED)" if UNSUPPORTED
-        depends on GICV3 && !NEW_VGIC && !ARM_32
+        default y
 
 config OVERLAY_DTB
 	bool "DTB overlay support (UNSUPPORTED)" if UNSUPPORTED
