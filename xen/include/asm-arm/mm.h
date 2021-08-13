@@ -98,9 +98,17 @@ struct page_info
 #define PGT_writable_page PG_mask(1, 1)  /* has writable mappings?         */
 #define PGT_type_mask     PG_mask(1, 1)  /* Bits 31 or 63.                 */
 
- /* Count of uses of this frame as its current type. */
-#define PGT_count_width   PG_shift(2)
-#define PGT_count_mask    ((1UL<<PGT_count_width)-1)
+ /* 2-bit count of uses of this frame as its current type. */
+#define PGT_count_mask    PG_mask(3, 3)
+
+/*
+ * Stored in bits [28:0] or [60:0] GFN if page is used for grant table frame.
+ * This only valid for the xenheap pages.
+ */
+#define PGT_gfn_width     PG_shift(3)
+#define PGT_gfn_mask      ((1UL<<PGT_gfn_width)-1)
+
+#define PGT_INVALID_FRAME_GFN   _gfn(PGT_gfn_mask)
 
  /* Cleared when the owning guest 'frees' this page. */
 #define _PGC_allocated    PG_shift(1)
@@ -165,6 +173,27 @@ extern unsigned long xenheap_base_pdx;
 #define page_set_owner(_p,_d) ((_p)->v.inuse.domain = (_d))
 
 #define maddr_get_owner(ma)   (page_get_owner(maddr_to_page((ma))))
+
+#define page_get_frame_gfn(p) ({                                \
+    gfn_t gfn_ = _gfn((p)->u.inuse.type_info & PGT_gfn_mask);   \
+    gfn_eq(gfn_, PGT_INVALID_FRAME_GFN) ? INVALID_GFN : gfn_;   \
+})
+
+#define page_set_frame_gfn(p, gfn) ({                           \
+    gfn_t gfn_ = gfn_eq(gfn, INVALID_GFN) ?                     \
+                 PGT_INVALID_FRAME_GFN : gfn;                   \
+    (p)->u.inuse.type_info &= ~PGT_gfn_mask;                    \
+    (p)->u.inuse.type_info |= gfn_x(gfn_);                      \
+})
+
+/*
+ * As the struct page_info representing the xen_heap page can contain
+ * the grant table frame GFN on Arm we need to clear it beforehand and
+ * make sure it is not still set when freeing a page.
+ */
+#define arch_alloc_xenheap_page(p)   page_set_frame_gfn(p, INVALID_GFN)
+#define arch_free_xenheap_page(p) \
+    BUG_ON(!gfn_eq(page_get_frame_gfn(p), INVALID_GFN))
 
 #define frame_table ((struct page_info *)FRAMETABLE_VIRT_START)
 /* PDX of the first page in the frame table. */

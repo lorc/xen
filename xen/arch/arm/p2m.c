@@ -718,8 +718,10 @@ static int p2m_mem_access_radix_set(struct p2m_domain *p2m, gfn_t gfn,
  * TODO: Handle superpages, for now we only take special references for leaf
  * pages (specifically foreign ones, which can't be super mapped today).
  */
-static void p2m_put_l3_page(const lpae_t pte)
+static void p2m_put_l3_page(struct p2m_domain *p2m, const lpae_t pte)
 {
+    mfn_t mfn = lpae_get_mfn(pte);
+
     ASSERT(p2m_is_valid(pte));
 
     /*
@@ -731,11 +733,22 @@ static void p2m_put_l3_page(const lpae_t pte)
      */
     if ( p2m_is_foreign(pte.p2m.type) )
     {
-        mfn_t mfn = lpae_get_mfn(pte);
-
         ASSERT(mfn_valid(mfn));
         put_page(mfn_to_page(mfn));
     }
+
+#ifdef CONFIG_GRANT_TABLE
+    /*
+     * Check whether we deal with grant table page. As the grant table page
+     * is xen_heap page and its entry has known p2m type, detect it and mark
+     * the stored GFN as invalid. Although this check is not precise and we
+     * might end up updating this for other xen_heap pages, this action is
+     * harmless to these pages since only grant table pages have this field
+     * in use. So, at worst, unnecessary action might be performed.
+     */
+    if ( (pte.p2m.type == p2m_ram_rw) && is_xen_heap_mfn(mfn) )
+        page_set_frame_gfn(mfn_to_page(mfn), INVALID_GFN);
+#endif
 }
 
 /* Free lpae sub-tree behind an entry */
@@ -768,7 +781,7 @@ static void p2m_free_entry(struct p2m_domain *p2m,
         p2m->stats.mappings[level]--;
         /* Nothing to do if the entry is a super-page. */
         if ( level == 3 )
-            p2m_put_l3_page(entry);
+            p2m_put_l3_page(p2m, entry);
         return;
     }
 

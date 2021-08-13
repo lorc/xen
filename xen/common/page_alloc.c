@@ -2161,6 +2161,7 @@ void init_xenheap_pages(paddr_t ps, paddr_t pe)
 void *alloc_xenheap_pages(unsigned int order, unsigned int memflags)
 {
     struct page_info *pg;
+    unsigned int i;
 
     ASSERT(!in_irq());
 
@@ -2168,6 +2169,9 @@ void *alloc_xenheap_pages(unsigned int order, unsigned int memflags)
                           order, memflags | MEMF_no_scrub, NULL);
     if ( unlikely(pg == NULL) )
         return NULL;
+
+    for ( i = 0; i < (1u << order); i++ )
+        arch_alloc_xenheap_page(&pg[i]);
 
     memguard_unguard_range(page_to_virt(pg), 1 << (order + PAGE_SHIFT));
 
@@ -2177,14 +2181,22 @@ void *alloc_xenheap_pages(unsigned int order, unsigned int memflags)
 
 void free_xenheap_pages(void *v, unsigned int order)
 {
+    struct page_info *pg;
+    unsigned int i;
+
     ASSERT(!in_irq());
 
     if ( v == NULL )
         return;
 
+    pg = virt_to_page(v);
+
     memguard_guard_range(v, 1 << (order + PAGE_SHIFT));
 
-    free_heap_pages(virt_to_page(v), order, false);
+    for ( i = 0; i < (1u << order); i++ )
+        arch_free_xenheap_page(&pg[i]);
+
+    free_heap_pages(pg, order, false);
 }
 
 #else  /* !CONFIG_SEPARATE_XENHEAP */
@@ -2220,7 +2232,10 @@ void *alloc_xenheap_pages(unsigned int order, unsigned int memflags)
         return NULL;
 
     for ( i = 0; i < (1u << order); i++ )
+    {
         pg[i].count_info |= PGC_xen_heap;
+        arch_alloc_xenheap_page(&pg[i]);
+    }
 
     return page_to_virt(pg);
 }
@@ -2238,7 +2253,10 @@ void free_xenheap_pages(void *v, unsigned int order)
     pg = virt_to_page(v);
 
     for ( i = 0; i < (1u << order); i++ )
+    {
         pg[i].count_info &= ~PGC_xen_heap;
+        arch_free_xenheap_page(&pg[i]);
+    }
 
     free_heap_pages(pg, order, true);
 }

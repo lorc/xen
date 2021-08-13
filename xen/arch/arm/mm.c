@@ -1376,14 +1376,18 @@ unsigned long domain_get_maximum_gpfn(struct domain *d)
 void share_xen_page_with_guest(struct page_info *page, struct domain *d,
                                enum XENSHARE_flags flags)
 {
+    unsigned long type_info;
+
     if ( page_get_owner(page) == d )
         return;
 
     spin_lock(&d->page_alloc_lock);
 
     /* The incremented type count pins as writable or read-only. */
-    page->u.inuse.type_info =
-        (flags == SHARE_ro ? PGT_none : PGT_writable_page) | 1;
+    type_info = page->u.inuse.type_info & ~(PGT_type_mask | PGT_count_mask);
+    page->u.inuse.type_info = type_info |
+        (flags == SHARE_ro ? PGT_none : PGT_writable_page) |
+        MASK_INSR(1, PGT_count_mask);
 
     page_set_owner(page, d);
     smp_wmb(); /* install valid domain ptr before updating refcnt. */

@@ -327,6 +327,10 @@ struct page_info
 
 #define maddr_get_owner(ma)   (page_get_owner(maddr_to_page((ma))))
 
+/* No arch-specific actions are needed for the xen_heap page */
+#define arch_alloc_xenheap_page(p)   do {} while ( 0 )
+#define arch_free_xenheap_page(p)    do {} while ( 0 )
+
 #define frame_table ((struct page_info *)FRAMETABLE_VIRT_START)
 extern unsigned long max_page;
 extern unsigned long total_pages;
