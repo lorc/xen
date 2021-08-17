@@ -35,8 +35,8 @@ SUBDIRS-$(CONFIG_X86) += xenpaging
 SUBDIRS-$(CONFIG_X86) += debugger
 SUBDIRS-$(CONFIG_TESTS) += tests
 
-SUBDIRS-y += python
-SUBDIRS-y += pygrub
+#SUBDIRS-y += python
+#SUBDIRS-y += pygrub
 SUBDIRS-$(OCAML_TOOLS) += ocaml
 
 ifeq ($(CONFIG_RUMP),y)
