@@ -94,6 +94,7 @@ int vpci_add_handlers(struct pci_dev *pdev)
 
     /* We should not get here twice for the same device. */
     ASSERT(!pdev->vpci);
+    ASSERT(pcidevs_locked());
 
     pdev->vpci = xzalloc(struct vpci);
     if ( !pdev->vpci )
@@ -134,6 +135,8 @@ int vpci_add_virtual_device(struct pci_dev *pdev)
     pci_sbdf_t sbdf;
     unsigned long new_dev_number;
 
+    ASSERT(pcidevs_locked());
+
     /*
      * Each PCI bus supports 32 devices/slots at max or up to 256 when
      * there are multi-function ones which are not yet supported.
@@ -172,8 +175,35 @@ REGISTER_VPCI_INIT(vpci_add_virtual_device, VPCI_PRIORITY_MIDDLE);
 static void vpci_remove_virtual_device(struct domain *d,
                                        const struct pci_dev *pdev)
 {
+    ASSERT(pcidevs_locked());
+
     clear_bit(pdev->vpci->guest_sbdf.dev, &d->vpci_dev_assigned_map);
     pdev->vpci->guest_sbdf.sbdf = ~0;
+}
+
+/*
+ * Find the physical device which is mapped to the virtual device
+ * and translate virtual SBDF to the physical one.
+ */
+bool vpci_translate_virtual_device(const struct domain *d, pci_sbdf_t *sbdf)
+{
+    const struct pci_dev *pdev;
+    bool found = false;
+
+    pcidevs_lock();
+    for_each_pdev( d, pdev )
+    {
+        if ( pdev->vpci->guest_sbdf.sbdf == sbdf->sbdf )
+        {
+            /* Replace virtual SBDF with the physical one. */
+            *sbdf = pdev->sbdf;
+            found = true;
+            break;
+        }
+    }
+    pcidevs_unlock();
+
+    return found;
 }
 
 /* Notify vPCI that device is assigned to guest. */
