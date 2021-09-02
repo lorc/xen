@@ -30,3 +30,4 @@ allow domD_t domU_t:domain2 resource_map;
 allow domD_t domU_t_channel:event create;
 allow domD_t domU_t:hvm dm;
 allow domD_t xen_t:xen physinfo;
+allow domD_t domU_t:domain getdomaininfo;
