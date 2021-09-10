@@ -459,6 +459,22 @@ static void cmd_write(const struct pci_dev *pdev, unsigned int reg,
         pci_conf_write16(pdev->sbdf, reg, cmd);
 }
 
+static void guest_cmd_write(const struct pci_dev *pdev, unsigned int reg,
+                            uint32_t cmd, void *data)
+{
+    /* TODO: Add proper emulation for all bits of the command register. */
+
+#ifdef CONFIG_HAS_PCI_MSI
+    if ( pdev->vpci->msi->enabled )
+    {
+        /* Guest wants to enable INTx. It can't be enabled if MSI/MSI-X enabled. */
+        cmd |= PCI_COMMAND_INTX_DISABLE;
+    }
+#endif
+
+    cmd_write(pdev, reg, cmd, data);
+}
+
 static void bar_write(const struct pci_dev *pdev, unsigned int reg,
                       uint32_t val, void *data)
 {
@@ -631,8 +647,9 @@ static int init_bars(struct pci_dev *pdev)
     }
 
     /* Setup a handler for the command register. */
-    rc = vpci_add_register(pdev->vpci, vpci_hw_read16, cmd_write, PCI_COMMAND,
-                           2, header);
+    rc = vpci_add_register(pdev->vpci, vpci_hw_read16,
+                           is_hwdom ? cmd_write : guest_cmd_write,
+                           PCI_COMMAND, 2, header);
     if ( rc )
         return rc;
 
