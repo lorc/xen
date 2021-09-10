@@ -502,14 +502,37 @@ static int modify_bars(const struct pci_dev *pdev, uint16_t cmd, bool rom_only)
     return 0;
 }
 
+/* TODO: Add proper emulation for all bits of the command register. */
 static void cf_check cmd_write(
     const struct pci_dev *pdev, unsigned int reg, uint32_t cmd, void *data)
 {
     struct vpci_header *header = data;
 
+    if ( !is_hardware_domain(pdev->domain) )
+    {
+        if ( IS_ENABLED(CONFIG_HAS_PCI_MSI) )
+        {
+            /* Tell guest that device does not support this */
+            cmd &= ~PCI_COMMAND_FAST_BACK;
+        }
+
+        header->guest_cmd = cmd;
+
+        if ( IS_ENABLED(CONFIG_HAS_PCI_MSI) )
+        {
+            /* Do not touch INVALIDATE, PARITY and SERR */
+            const uint16_t excluded = PCI_COMMAND_INVALIDATE |
+                PCI_COMMAND_PARITY | PCI_COMMAND_SERR;
+
+            cmd &= ~excluded;
+            cmd |= pci_conf_read16(pdev->sbdf, reg) & excluded;
+        }
+    }
+
     /*
-     * Let Dom0 play with all the bits directly except for the memory
-     * decoding one.
+     * Let guest play with all the bits directly except for the memory
+     * decoding one. Bits that are not allowed for DomU are already
+     * handled above.
      */
     if ( header->bars_mapped != !!(cmd & PCI_COMMAND_MEMORY) )
         /*
@@ -521,6 +544,14 @@ static void cf_check cmd_write(
         modify_bars(pdev, cmd, false);
     else
         pci_conf_write16(pdev->sbdf, reg, cmd);
+}
+
+static uint32_t guest_cmd_read(const struct pci_dev *pdev, unsigned int reg,
+                               void *data)
+{
+    const struct vpci_header *header = data;
+
+    return header->guest_cmd;
 }
 
 static void cf_check bar_write(
@@ -732,8 +763,12 @@ static int cf_check init_bars(struct pci_dev *pdev)
     }
 
     /* Setup a handler for the command register. */
-    rc = vpci_add_register(pdev->vpci, vpci_hw_read16, cmd_write, PCI_COMMAND,
-                           2, header);
+    if ( is_hwdom )
+        rc = vpci_add_register(pdev->vpci, vpci_hw_read16, cmd_write, PCI_COMMAND,
+                               2, header);
+    else
+        rc = vpci_add_register(pdev->vpci, guest_cmd_read, cmd_write, PCI_COMMAND,
+                               2, header);
     if ( rc )
         return rc;
 
@@ -744,6 +779,17 @@ static int cf_check init_bars(struct pci_dev *pdev)
     cmd = pci_conf_read16(pdev->sbdf, PCI_COMMAND);
     if ( cmd & PCI_COMMAND_MEMORY )
         pci_conf_write16(pdev->sbdf, PCI_COMMAND, cmd & ~PCI_COMMAND_MEMORY);
+
+    header->guest_cmd = cmd & ~PCI_COMMAND_MEMORY;
+
+    /*
+     * According to "PCI LOCAL BUS SPECIFICATION, REV. 3.0", section "6.2.2
+     * Device Control" the reset state of the command register is
+     * typically all 0's, so this is used as initial value for the guests.
+     */
+    if ( header->guest_cmd != 0 )
+        gprintk(XENLOG_WARNING, "%pp: CMD is not zero: %x", &pdev->sbdf,
+                header->guest_cmd);
 
     for ( i = 0; i < num_bars; i++ )
     {

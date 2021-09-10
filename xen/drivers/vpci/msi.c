@@ -70,6 +70,16 @@ static void cf_check control_write(
 
         if ( vpci_msi_arch_enable(msi, pdev, vectors) )
             return;
+
+        /*
+         * Make sure guest doesn't enable INTx while enabling MSI.
+         * Opposite action (enabling INTx) will be performed in
+         * vpci_msi_arch_disable call path.
+         */
+        if ( !is_hardware_domain(pdev->domain) )
+        {
+            pci_intx(pdev, false);
+        }
     }
     else
         vpci_msi_arch_disable(msi, pdev);
