@@ -444,6 +444,14 @@ struct domain
 
 #ifdef CONFIG_HAS_PCI
     struct list_head pdev_list;
+#ifdef CONFIG_HAS_VPCI_GUEST_SUPPORT
+    /*
+     * The bitmap which shows which device numbers are already used by the
+     * virtual PCI bus topology and is used to assign a unique SBDF to the
+     * next passed through virtual PCI device.
+     */
+    unsigned long vpci_dev_assigned_map;
+#endif
 #endif
 
 #ifdef CONFIG_HAS_PASSTHROUGH
