@@ -25,6 +25,10 @@ typedef int vpci_register_init_t(struct pci_dev *dev);
   static vpci_register_init_t *const x##_entry  \
                __used_section(".data.vpci." p) = x
 
+#define VMSIX_ADDR_IN_RANGE(addr, vpci, nr)                               \
+    ((addr) >= vmsix_table_addr(vpci, nr) &&                              \
+     (addr) < vmsix_table_addr(vpci, nr) + vmsix_table_size(vpci, nr))
+
 /* Add vPCI handlers to device. */
 int __must_check vpci_add_handlers(struct pci_dev *dev);
 
@@ -140,6 +144,7 @@ struct vpci {
         struct vpci_msix_entry {
             uint64_t addr;
             uint32_t data;
+            uint16_t entry_nr;
             bool masked  : 1;
             bool updated : 1;
             struct vpci_arch_msix_entry arch;
@@ -162,7 +167,11 @@ struct vpci_vcpu {
 
 #ifdef __XEN__
 void vpci_dump_msi(void);
-
+void register_msix_mmio_handler(struct domain *d);
+void update_entry(struct vpci_msix_entry *entry,
+                  const struct pci_dev *pdev, unsigned int nr);
+void vpci_msix_add_to_msix_table(struct vpci_msix *msix,
+                                 struct domain *d);
 /* Make sure there's a hole in the p2m for the MSIX mmio areas. */
 int vpci_make_msix_hole(const struct pci_dev *pdev);
 

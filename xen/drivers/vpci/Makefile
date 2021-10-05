@@ -1,2 +1,3 @@
-obj-y += vpci.o header.o
-obj-$(CONFIG_HAS_PCI_MSI) += msi.o msix.o
+obj-y += vpci.o header.o msi.o msix.o
+obj-$(CONFIG_X86) += x86/
+obj-$(CONFIG_ARM) += arm/

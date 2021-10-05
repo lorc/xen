@@ -167,6 +167,8 @@ static void mask_write(const struct pci_dev *pdev, unsigned int reg,
     if ( !dmask )
         return;
 
+    msi->mask = val;
+
     if ( msi->enabled )
     {
         unsigned int i;
@@ -178,8 +180,6 @@ static void mask_write(const struct pci_dev *pdev, unsigned int reg,
             __clear_bit(i, &dmask);
         }
     }
-
-    msi->mask = val;
 }
 
 static int init_msi(struct pci_dev *pdev)
@@ -210,6 +210,7 @@ static int init_msi(struct pci_dev *pdev)
     /* Get the maximum number of vectors the device supports. */
     control = pci_conf_read16(pdev->sbdf, msi_control_reg(pos));
 
+    pdev->msi_maxvec = multi_msi_capable(control);
     /*
      * FIXME: I've only been able to test this code with devices using a single
      * MSI interrupt and no mask register.
@@ -262,6 +263,52 @@ static int init_msi(struct pci_dev *pdev)
     return 0;
 }
 REGISTER_VPCI_INIT(init_msi, VPCI_PRIORITY_LOW);
+
+int vpci_add_msi_ctrl_hanlder(const struct pci_dev *pdev)
+{
+    int ret;
+    uint8_t slot = PCI_SLOT(pdev->devfn), func = PCI_FUNC(pdev->devfn);
+    unsigned int pos = pci_find_cap_offset(pdev->seg, pdev->bus, slot, func,
+                                           PCI_CAP_ID_MSI);
+
+    if ( !pos )
+        return 0;
+
+    ret = vpci_add_register(pdev->vpci, control_read, control_write,
+                            msi_control_reg(pos), 2, pdev->vpci->msi);
+    if ( ret )
+        return ret;
+
+    ret = vpci_add_register(pdev->vpci, address_read, address_write,
+                            msi_lower_address_reg(pos), 4, pdev->vpci->msi);
+    if ( ret )
+        return ret;
+
+    ret = vpci_add_register(pdev->vpci, data_read, data_write,
+                            msi_data_reg(pos, pdev->vpci->msi->address64), 2,
+                            pdev->vpci->msi);
+    if ( ret )
+        return ret;
+
+    if ( pdev->vpci->msi->address64 )
+    {
+        ret = vpci_add_register(pdev->vpci, address_hi_read, address_hi_write,
+                                msi_upper_address_reg(pos), 4, pdev->vpci->msi);
+        if ( ret )
+            return ret;
+    }
+
+    if ( pdev->vpci->msi->masking )
+    {
+        ret = vpci_add_register(pdev->vpci, mask_read, mask_write,
+                                msi_mask_bits_reg(pos,
+                                                  pdev->vpci->msi->address64),
+                                4, pdev->vpci->msi);
+        if ( ret )
+            return ret;
+    }
+    return 0;
+}
 
 void vpci_dump_msi(void)
 {

@@ -114,10 +114,8 @@ static void modify_decoding(const struct pci_dev *pdev, uint16_t cmd,
      * FIXME: punching holes after the p2m has been set up might be racy for
      * DomU usage, needs to be revisited.
      */
-#ifdef CONFIG_HAS_PCI_MSI
     if ( map && !rom_only && vpci_make_msix_hole(pdev) )
         return;
-#endif
 
     for ( i = 0; i < ARRAY_SIZE(header->bars); i++ )
     {
@@ -500,7 +498,7 @@ static void bar_write(const struct pci_dev *pdev, unsigned int reg,
         /* If the value written is the current one avoid printing a warning. */
         if ( val != (uint32_t)(bar->addr >> (hi ? 32 : 0)) )
             gprintk(XENLOG_WARNING,
-                    "%pp: ignored BAR %zu write with memory decoding enabled\n",
+                    "%pp: ignored BAR %"PRIuPTR" write with memory decoding enabled\n",
                     &pdev->sbdf, bar - pdev->vpci->header.bars + hi);
         return;
     }

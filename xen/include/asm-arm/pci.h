@@ -30,10 +30,12 @@ struct arch_pci_dev {
 
 /* Arch-specific MSI data for vPCI. */
 struct vpci_arch_msi {
+    void __iomem *msi_base;
 };
 
 /* Arch-specific MSI-X entry data for vPCI. */
 struct vpci_arch_msix_entry {
+    void __iomem *msix_base;
 };
 
 /*
@@ -126,6 +128,8 @@ int pci_host_iterate_bridges_and_count(struct domain *d,
 
 int pci_host_bridge_mappings(struct domain *d);
 
+int pci_msi_conf_write_intercept(struct pci_dev *, unsigned int reg,
+                                 unsigned int size, uint32_t *data);
 #else   /*!CONFIG_HAS_PCI*/
 
 struct arch_pci_dev { };
