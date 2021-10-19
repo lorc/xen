@@ -1336,14 +1336,6 @@ static int ipmmu_iommu_domain_init(struct domain *d)
 
 static void __hwdom_init ipmmu_iommu_hwdom_init(struct domain *d)
 {
-    /* Set to false options not supported on ARM. */
-    if ( iommu_hwdom_inclusive )
-        printk(XENLOG_WARNING "ipmmu: map-inclusive dom0-iommu option is not supported on ARM\n");
-    iommu_hwdom_inclusive = false;
-    if ( iommu_hwdom_reserved == 1 )
-        printk(XENLOG_WARNING "ipmmu: map-reserved dom0-iommu option is not supported on ARM\n");
-    iommu_hwdom_reserved = 0;
-
     arch_iommu_hwdom_init(d);
 }
 
