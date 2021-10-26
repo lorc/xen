@@ -753,9 +753,22 @@ static int __init write_properties(struct domain *d, struct kernel_info *kinfo,
         {
             uint16_t segment;
 
+            /*
+             * The node doesn't have "linux,pci-domain" property and it is
+             * possible that:
+             *  - Xen only has drivers for a part of the host bridges
+             *  - some host bridges are disabled
+             * Make sure we insert the correct "linux,pci-domain" property
+             * in any case, so we know which segments will be used
+             * by Linux for which bridges.
+             */
             res = pci_get_host_bridge_segment(node, &segment);
             if ( res < 0 )
-                return res;
+            {
+                segment = pci_get_new_domain_nr();
+                printk(XENLOG_DEBUG "Assigned segment %d to %s\n",
+                       segment, node->full_name);
+            }
 
             res = fdt_property_cell(kinfo->fdt, "linux,pci-domain", segment);
             if ( res )
