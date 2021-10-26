@@ -264,7 +264,7 @@ static inline void arch_vcpu_block(struct vcpu *v) {}
 #define arch_vm_assist_valid_mask(d) (1UL << VMASST_TYPE_runstate_update_flag)
 
 /* vPCI is not available on Arm */
-#define has_vpci(d)    ({ (void)(d); false; })
+#define has_vpci(d)    ({ (void)(d); true; })
 
 #endif /* __ASM_DOMAIN_H__ */
 
