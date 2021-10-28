@@ -56,6 +56,7 @@ uint32_t vpci_hw_read32(const struct pci_dev *pdev, unsigned int reg,
  * should not run.
  */
 bool __must_check vpci_process_pending(struct vcpu *v);
+void vpci_cancel_pending(const struct pci_dev *pdev);
 
 struct vpci {
     /* List of vPCI handlers for a device. */
@@ -251,6 +252,11 @@ static inline bool __must_check vpci_process_pending(struct vcpu *v)
 {
     ASSERT_UNREACHABLE();
     return false;
+}
+
+static inline void vpci_cancel_pending(const struct pci_dev *pdev)
+{
+    ASSERT_UNREACHABLE();
 }
 #endif
 

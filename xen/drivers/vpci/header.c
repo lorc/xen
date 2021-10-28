@@ -149,8 +149,7 @@ bool vpci_process_pending(struct vcpu *v)
                         !rc && v->vpci.rom_only);
         spin_unlock(&v->vpci.pdev->vpci->lock);
 
-        rangeset_destroy(v->vpci.mem);
-        v->vpci.mem = NULL;
+        vpci_cancel_pending(v->vpci.pdev);
         if ( rc )
             /*
              * FIXME: in case of failure remove the device from the domain.
@@ -163,6 +162,18 @@ bool vpci_process_pending(struct vcpu *v)
     }
 
     return false;
+}
+
+void vpci_cancel_pending(const struct pci_dev *pdev)
+{
+    struct vcpu *v = current;
+
+    /* Cancel any pending work now. */
+    if ( v->vpci.mem && v->vpci.pdev == pdev)
+    {
+        rangeset_destroy(v->vpci.mem);
+        v->vpci.mem = NULL;
+    }
 }
 
 static int __init apply_map(struct domain *d, const struct pci_dev *pdev,
