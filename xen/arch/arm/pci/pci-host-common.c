@@ -222,7 +222,8 @@ static int pci_bus_find_domain_nr(struct dt_device_node *dev)
 }
 
 int pci_host_common_probe(struct dt_device_node *dev,
-                          const struct pci_ecam_ops *ops)
+                          const struct pci_ecam_ops *ops,
+                          size_t priv_sz)
 {
     struct pci_host_bridge *bridge;
     struct pci_config_window *cfg;
@@ -253,11 +254,25 @@ int pci_host_common_probe(struct dt_device_node *dev,
         printk(XENLOG_ERR "Inconsistent \"linux,pci-domain\" property in DT\n");
         BUG();
     }
+
+    if ( priv_sz )
+    {
+        bridge->priv = xzalloc_bytes(priv_sz);
+        if ( !bridge->priv )
+        {
+            err = -ENOMEM;
+            goto err_priv;
+        }
+    }
+
     pci_add_host_bridge(bridge);
 
     pci_set_msi_base(bridge);
 
     return 0;
+
+err_priv:
+    xfree(bridge->priv);
 
 err_exit:
     xfree(bridge);
