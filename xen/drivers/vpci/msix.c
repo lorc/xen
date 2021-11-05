@@ -143,6 +143,9 @@ static int init_msix(struct pci_dev *pdev)
     struct vpci_msix *msix;
     int rc;
 
+    if ( !is_hardware_domain(pdev->domain) )
+        return 0;
+
     msix_offset = pci_find_cap_offset(pdev->seg, pdev->bus, slot, func,
                                       PCI_CAP_ID_MSIX);
     if ( !msix_offset )
@@ -187,11 +190,14 @@ static int init_msix(struct pci_dev *pdev)
 }
 REGISTER_VPCI_INIT(init_msix, VPCI_PRIORITY_HIGH);
 
-int vpci_add_msix_ctrl_hanlder(const struct pci_dev *pdev)
+static int vpci_add_msix_ctrl_hanlder(struct pci_dev *pdev)
 {
     uint8_t slot = PCI_SLOT(pdev->devfn), func = PCI_FUNC(pdev->devfn);
     unsigned int msix_offset;
     int  rc;
+
+    if ( is_hardware_domain(pdev->domain) )
+        return 0;
 
     msix_offset = pci_find_cap_offset(pdev->seg, pdev->bus, slot, func,
                                       PCI_CAP_ID_MSIX);
@@ -208,6 +214,7 @@ int vpci_add_msix_ctrl_hanlder(const struct pci_dev *pdev)
 
     return 0;
 }
+REGISTER_VPCI_INIT(vpci_add_msix_ctrl_hanlder, VPCI_PRIORITY_HIGH);
 
 /*
  * Local variables:

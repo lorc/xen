@@ -193,6 +193,9 @@ static int init_msi(struct pci_dev *pdev)
     if ( !pos )
         return 0;
 
+    if ( !is_hardware_domain(pdev->domain) )
+        return 0;
+
     pdev->vpci->msi = xzalloc(struct vpci_msi);
     if ( !pdev->vpci->msi )
         return -ENOMEM;
@@ -264,12 +267,15 @@ static int init_msi(struct pci_dev *pdev)
 }
 REGISTER_VPCI_INIT(init_msi, VPCI_PRIORITY_LOW);
 
-int vpci_add_msi_ctrl_hanlder(const struct pci_dev *pdev)
+static int vpci_add_msi_ctrl_hanlder(struct pci_dev *pdev)
 {
     int ret;
     uint8_t slot = PCI_SLOT(pdev->devfn), func = PCI_FUNC(pdev->devfn);
     unsigned int pos = pci_find_cap_offset(pdev->seg, pdev->bus, slot, func,
                                            PCI_CAP_ID_MSI);
+
+    if ( is_hardware_domain(pdev->domain) )
+        return 0;
 
     if ( !pos )
         return 0;
@@ -309,6 +315,7 @@ int vpci_add_msi_ctrl_hanlder(const struct pci_dev *pdev)
     }
     return 0;
 }
+REGISTER_VPCI_INIT(vpci_add_msi_ctrl_hanlder, VPCI_PRIORITY_LOW);
 
 void vpci_dump_msi(void)
 {
