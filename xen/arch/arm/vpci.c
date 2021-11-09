@@ -75,7 +75,9 @@ static int vpci_setup_mmio_handler_cb(struct domain *d,
 
     register_mmio_handler(d, &vpci_mmio_handler,
                           cfg->phys_addr, cfg->size, bridge);
-    return 0;
+
+    /* We have registered a single MMIO handler. */
+    return 1;
 }
 
 int domain_vpci_init(struct domain *d)
@@ -84,7 +86,15 @@ int domain_vpci_init(struct domain *d)
         return 0;
 
     if ( is_hardware_domain(d) )
-        return pci_host_iterate_bridges(d, vpci_setup_mmio_handler_cb);
+    {
+        int count;
+
+        count = pci_host_iterate_bridges_and_count(d, vpci_setup_mmio_handler_cb);
+        if ( count < 0 )
+            return count;
+
+        return 0;
+    }
 
     /* Guest domains use what is programmed in their device tree. */
     register_mmio_handler(d, &vpci_mmio_handler,
@@ -93,24 +103,40 @@ int domain_vpci_init(struct domain *d)
     return 0;
 }
 
+static int vpci_get_num_handlers_cb(struct domain *d,
+                                    struct pci_host_bridge *bridge)
+{
+    /* Each bridge has a single MMIO handler for the configuration space. */
+    return 1;
+}
+
 unsigned int domain_vpci_get_num_mmio_handlers(struct domain *d)
 {
     unsigned int count;
 
     if ( is_hardware_domain(d) )
-        /* For each PCI host bridge's configuration space. */
-        count = pci_host_get_num_bridges();
-    else
-        /*
-         * There's a single MSI-X MMIO handler that deals with both PBA
-         * and MSI-X tables per each PCI device being passed through.
-         * Maximum number of supported devices is 32 as virtual bus
-         * topology emulates the devices as embedded endpoints.
-         * +1 for a single emulated host bridge's configuration space.
-         */
-        count = 1;
+    {
+        int count;
+
+        count = pci_host_iterate_bridges_and_count(d, vpci_get_num_handlers_cb);
+        if ( count < 0 )
+            return count;
+
+        return 0;
+    }
+
+    /*
+     * This is a guest domain.
+     *
+     * There's a single MSI-X MMIO handler that deals with both PBA
+     * and MSI-X tables per each PCI device being passed through.
+     * Maximum number of supported devices is 32 as virtual bus
+     * topology emulates the devices as embedded endpoints.
+     * +1 for a single emulated host bridge's configuration space.
+     */
+    count = 1;
 #ifdef CONFIG_HAS_PCI_MSI
-        count += 32;
+    count += 32;
 #endif
 
     return count;
