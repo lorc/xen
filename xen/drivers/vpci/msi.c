@@ -193,7 +193,7 @@ static int init_msi(struct pci_dev *pdev)
     if ( !pos )
         return 0;
 
-    if ( !is_hardware_domain(pdev->domain) )
+    if ( !pci_is_hardware_domain(pdev->domain, pdev->seg, pdev->bus) )
         return 0;
 
     pdev->vpci->msi = xzalloc(struct vpci_msi);
@@ -274,7 +274,7 @@ static int vpci_add_msi_ctrl_hanlder(struct pci_dev *pdev)
     unsigned int pos = pci_find_cap_offset(pdev->seg, pdev->bus, slot, func,
                                            PCI_CAP_ID_MSI);
 
-    if ( is_hardware_domain(pdev->domain) )
+    if ( pci_is_hardware_domain(pdev->domain, pdev->seg, pdev->bus) )
         return 0;
 
     if ( !pos )

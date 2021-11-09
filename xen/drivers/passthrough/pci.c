@@ -755,8 +755,11 @@ int pci_add_device(u16 seg, u8 bus, u8 devfn,
     ret = 0;
     if ( !pdev->domain )
     {
-        pdev->domain = hardware_domain;
-        list_add(&pdev->domain_list, &hardware_domain->pdev_list);
+        struct domain *pci_hwdom =
+            pci_get_hardware_domain(pdev->seg, pdev->bus);
+
+        pdev->domain = pci_hwdom;
+        list_add(&pdev->domain_list, &pci_hwdom->pdev_list);
 
         /*
          * For devices not discovered by Xen during boot, add vPCI handlers
@@ -840,7 +843,7 @@ static int deassign_device(struct domain *d, uint16_t seg, uint8_t bus,
 {
     const struct domain_iommu *hd = dom_iommu(d);
     struct pci_dev *pdev;
-    struct domain *target;
+    struct domain *target, *pci_hwdom;
     int ret = 0;
 
     if ( !is_iommu_enabled(d) )
@@ -851,10 +854,12 @@ static int deassign_device(struct domain *d, uint16_t seg, uint8_t bus,
     if ( !pdev )
         return -ENODEV;
 
+    pci_hwdom = pci_get_hardware_domain(seg, bus);
+
     /* De-assignment from dom_io should de-quarantine the device */
     target = ((pdev->quarantine || iommu_quarantine) &&
               pdev->domain != dom_io) ?
-        dom_io : hardware_domain;
+        dom_io : pci_hwdom;
 
     while ( pdev->phantom_stride )
     {
@@ -877,7 +882,7 @@ static int deassign_device(struct domain *d, uint16_t seg, uint8_t bus,
     if ( ret )
         goto out;
 
-    if ( pdev->domain == hardware_domain  )
+    if ( pdev->domain == pci_hwdom  )
         pdev->quarantine = false;
 
     pdev->fault.count = 0;
@@ -1406,7 +1411,7 @@ static int device_assigned(u16 seg, u8 bus, u8 devfn)
      * domain or dom_io then it must be assigned to a guest, or be
      * hidden (owned by dom_xen).
      */
-    else if ( pdev->domain != hardware_domain &&
+    else if ( pdev->domain != pci_get_hardware_domain(seg, bus) &&
               pdev->domain != dom_io )
         rc = -EBUSY;
 
@@ -1429,7 +1434,7 @@ static int assign_device(struct domain *d, u16 seg, u8 bus, u8 devfn, u32 flag)
     /* device_assigned() should already have cleared the device for assignment */
     ASSERT(pcidevs_locked());
     pdev = pci_get_pdev(seg, bus, devfn);
-    ASSERT(pdev && (pdev->domain == hardware_domain ||
+    ASSERT(pdev && (pdev->domain == pci_get_hardware_domain(seg, bus) ||
                     pdev->domain == dom_io));
 
     rc = pdev_msix_assign(d, pdev);
@@ -1529,7 +1534,7 @@ void iommu_dev_iotlb_flush_timeout(struct domain *d, struct pci_dev *pdev)
     if ( !d->is_shutting_down && printk_ratelimit() )
         printk(XENLOG_ERR "dom%d: ATS device %pp flush failed\n",
                d->domain_id, &pdev->sbdf);
-    if ( !is_hardware_domain(d) )
+    if ( !pci_is_hardware_domain(d, pdev->seg, pdev->bus) )
         domain_crash(d);
 
     pcidevs_unlock();

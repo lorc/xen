@@ -166,7 +166,9 @@ bool vpci_process_pending(struct vcpu *v)
                 continue;
 
             data.start_gfn =
-                 _gfn(PFN_DOWN(is_hardware_domain(v->domain)
+                 _gfn(PFN_DOWN(pci_is_hardware_domain(v->domain,
+                                                      v->vpci.pdev->seg,
+                                                      v->vpci.pdev->bus)
                                ? bar->addr : bar->guest_addr));
             data.start_mfn = _mfn(PFN_DOWN(bar->addr));
             rc = rangeset_consume_ranges(bar->mem, map_range, &data);
@@ -243,7 +245,8 @@ static int __init apply_map(struct domain *d, const struct pci_dev *pdev,
         if ( rangeset_is_empty(bar->mem) )
             continue;
 
-        data.start_gfn = _gfn(PFN_DOWN(is_hardware_domain(d)
+        data.start_gfn = _gfn(PFN_DOWN(pci_is_hardware_domain(d, pdev->seg,
+                                                              pdev->bus)
                                        ? bar->addr : bar->guest_addr));
         data.start_mfn = _mfn(PFN_DOWN(bar->addr));
         while ( (rc = rangeset_consume_ranges(bar->mem, map_range,
@@ -631,7 +634,7 @@ static int init_bars(struct pci_dev *pdev)
     struct vpci_header *header = &pdev->vpci->header;
     struct vpci_bar *bars = header->bars;
     int rc;
-    bool is_hwdom = is_hardware_domain(pdev->domain);
+    bool is_hwdom = pci_is_hardware_domain(pdev->domain, pdev->seg, pdev->bus);
 
     switch ( pci_conf_read8(pdev->sbdf, PCI_HEADER_TYPE) & 0x7f )
     {

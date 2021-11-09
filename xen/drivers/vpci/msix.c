@@ -143,7 +143,7 @@ static int init_msix(struct pci_dev *pdev)
     struct vpci_msix *msix;
     int rc;
 
-    if ( !is_hardware_domain(pdev->domain) )
+    if ( !pci_is_hardware_domain(pdev->domain, pdev->seg, pdev->bus) )
         return 0;
 
     msix_offset = pci_find_cap_offset(pdev->seg, pdev->bus, slot, func,
@@ -196,7 +196,7 @@ static int vpci_add_msix_ctrl_hanlder(struct pci_dev *pdev)
     unsigned int msix_offset;
     int  rc;
 
-    if ( is_hardware_domain(pdev->domain) )
+    if ( pci_is_hardware_domain(pdev->domain, pdev->seg, pdev->bus) )
         return 0;
 
     msix_offset = pci_find_cap_offset(pdev->seg, pdev->bus, slot, func,

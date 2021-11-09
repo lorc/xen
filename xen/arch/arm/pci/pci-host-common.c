@@ -445,6 +445,26 @@ int __init pci_host_bridge_mappings(struct domain *d)
     return 0;
 }
 
+bool pci_is_hardware_domain(const struct domain *d, u16 seg, u8 bus)
+{
+    struct pci_host_bridge *bridge = pci_find_host_bridge(seg, bus);
+
+    if ( unlikely(!bridge) )
+        return false;
+
+    return bridge->dt_node->used_by == d->domain_id;
+}
+
+struct domain *pci_get_hardware_domain(u16 seg, u8 bus)
+{
+    struct pci_host_bridge *bridge = pci_find_host_bridge(seg, bus);
+
+    if ( unlikely(!bridge) )
+        return NULL;
+
+    return get_domain_by_id(bridge->dt_node->used_by);
+}
+
 /*
  * Local variables:
  * mode: C
