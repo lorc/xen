@@ -101,7 +101,13 @@ struct vpci {
          * is mapped into guest p2m) if there's a ROM BAR on the device.
          */
         bool rom_enabled      : 1;
-        /* FIXME: currently there's no support for SR-IOV. */
+        /*
+         * Vendor and Device IDs for this virtual function if applicable.
+         * This is always guest's view as VFs do not provide
+         * PCI_VENDOR_ID:PCI_DEVICE_ID pair in their configuration space
+         * and always return 0xffffffff by SR-IOV specification.
+         */
+        uint32_t vf_ven_dev_id;
     } header;
 
     /* MSI data. */
@@ -154,6 +160,7 @@ struct vpci {
     /* Virtual SBDF of the device. */
     pci_sbdf_t guest_sbdf;
 #endif
+    struct vpci_bar vf_bars[PCI_SRIOV_NUM_BARS];
 #endif
 };
 
@@ -239,6 +246,13 @@ bool vpci_ecam_write(pci_sbdf_t sbdf, unsigned int reg, unsigned int len,
 
 bool vpci_ecam_read(pci_sbdf_t sbdf, unsigned int reg, unsigned int len,
                     unsigned long *data);
+
+void vpci_bar_write(const struct pci_dev *pdev, unsigned int reg,
+                    uint32_t val, void *data);
+void vpci_guest_bar_write(const struct pci_dev *pdev, unsigned int reg,
+                          uint32_t val, void *data);
+uint32_t vpci_guest_bar_read(const struct pci_dev *pdev, unsigned int reg,
+                             void *data);
 
 #endif /* __XEN__ */
 
