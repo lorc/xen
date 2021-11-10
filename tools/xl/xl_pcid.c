@@ -75,5 +75,5 @@ int main_pcid(int argc, char *argv[])
     libxl_pcid_process(ctx);
 
 out_daemon:
-    exit(1);
+    exit(ret);
 }
