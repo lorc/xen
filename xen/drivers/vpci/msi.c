@@ -196,6 +196,7 @@ static int init_msi(struct pci_dev *pdev)
     if ( !pci_is_hardware_domain(pdev->domain, pdev->seg, pdev->bus) )
         return 0;
 
+    printk("%s %pp\n", __func__, &pdev->sbdf);
     pdev->vpci->msi = xzalloc(struct vpci_msi);
     if ( !pdev->vpci->msi )
         return -ENOMEM;
@@ -279,6 +280,8 @@ static int vpci_add_msi_ctrl_hanlder(struct pci_dev *pdev)
 
     if ( !pos )
         return 0;
+
+    printk("%s %pp\n", __func__, &pdev->sbdf);
 
     ret = vpci_add_register(pdev->vpci, control_read, control_write,
                             msi_control_reg(pos), 2, pdev->vpci->msi);

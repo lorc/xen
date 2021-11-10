@@ -287,6 +287,7 @@ int vpci_add_register(struct vpci *vpci, vpci_read_t *read_handler,
     struct list_head *prev;
     struct vpci_register *r;
 
+    printk("\t%s offset %x\n", __func__, offset);
     /* Some sanity checks. */
     if ( (size != 1 && size != 2 && size != 4) ||
          offset >= PCI_CFG_SPACE_EXP_SIZE || (offset & (size - 1)) ||

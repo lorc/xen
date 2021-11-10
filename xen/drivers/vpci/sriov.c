@@ -86,68 +86,23 @@ static unsigned int get_sriov_pf_pos(const struct pci_dev *pdev)
                                    PCI_EXT_CAP_ID_SRIOV);
 }
 
-static int vf_init_bars_guest(struct pci_dev *pdev)
-{
-    const struct pci_dev *physfn_pdev;
-    struct vpci_bar *bars;
-    struct vpci_bar *physfn_vf_bars;
-    unsigned int i, vf_pos;
-
-    if ( !pdev->info.is_virtfn )
-        return 0;
-
-    physfn_pdev = get_physfn_pdev(pdev);
-    if ( !physfn_pdev )
-    {
-        gprintk(XENLOG_ERR, "%pp cannot find physfn\n",
-                &pdev->sbdf);
-        return -ENODEV;
-    }
-
-    /*
-     * Set up BARs for this VF out of PF's VF BARs taking into account
-     * the index of the VF.
-     */
-    bars = pdev->vpci->header.bars;
-    physfn_vf_bars = physfn_pdev->vpci->vf_bars;
-
-    vf_pos = get_sriov_pf_pos(physfn_pdev);
-    for ( i = 0; i < PCI_SRIOV_NUM_BARS; i++)
-    {
-        uint16_t offset = pci_conf_read16(physfn_pdev->sbdf,
-                                          vf_pos + PCI_SRIOV_VF_OFFSET);
-        uint16_t stride = pci_conf_read16(physfn_pdev->sbdf,
-                                          vf_pos + PCI_SRIOV_VF_STRIDE);
-        int vf_idx;
-
-        vf_idx = pdev->sbdf.sbdf;
-        vf_idx -= physfn_pdev->sbdf.sbdf + offset;
-        if ( vf_idx < 0 )
-            return -EINVAL;
-        if ( stride )
-        {
-            if ( vf_idx % stride )
-                return -EINVAL;
-            vf_idx /= stride;
-        }
-
-        bars[i].type = physfn_vf_bars[i].type;
-        bars[i].addr = physfn_vf_bars[i].addr + vf_idx * physfn_vf_bars[i].size;
-        bars[i].size = physfn_vf_bars[i].size;
-        bars[i].prefetchable = physfn_vf_bars[i].prefetchable;
-    }
-    return 0;
-}
-REGISTER_VPCI_INIT(vf_init_bars_guest, VPCI_PRIORITY_MIDDLE);
-
+/*
+ * This is called for the physical functions which live in the hardware domain
+ * and is used to prepare vf_bars.
+ * No device, but physical function has PCI_EXT_CAP_ID_SRIOV.
+ */
 static int vf_init_bars(struct pci_dev *pdev)
 {
     struct vpci_bar *bars;
     unsigned int i, vf_pos;
 
     vf_pos = get_sriov_pf_pos(pdev);
+    printk("%s %pp vf_pos %x\n", __func__, &pdev->sbdf, vf_pos);
     if ( !vf_pos )
+    {
+        printk("\t%s %pp nothing to do\n", __func__, &pdev->sbdf);
         return 0;
+    }
 
     /* Read BARs for VFs out of PF's SR-IOV extended capability. */
     bars = pdev->vpci->vf_bars;
@@ -163,6 +118,7 @@ static int vf_init_bars(struct pci_dev *pdev)
         if ( i && bars[i - 1].type == VPCI_BAR_MEM64_LO )
         {
             bars[i].type = VPCI_BAR_MEM64_HI;
+            printk("\t%s %pp bar type %x\n", __func__, &pdev->sbdf, bars[i].type);
             continue;
         }
 
@@ -187,29 +143,106 @@ static int vf_init_bars(struct pci_dev *pdev)
             bars[i].type = VPCI_BAR_MEM32;
 
         bars[i].prefetchable = bar & PCI_BASE_ADDRESS_MEM_PREFETCH;
+        printk("\t%s %pp bar type %x\n", __func__, &pdev->sbdf, bars[i].type);
     }
+    printk("%s %pp done\n", __func__, &pdev->sbdf);
     return 0;
 }
 REGISTER_VPCI_INIT(vf_init_bars, VPCI_PRIORITY_MIDDLE);
+
+/*
+ * This is called for the virtual functions of the physical function which
+ * live in the hardware domain and is used to prepare BARs of the
+ * virtual function's pdev.
+ */
+static int vf_init_bars_virtfn(struct pci_dev *pdev)
+{
+    const struct pci_dev *physfn_pdev;
+    struct vpci_bar *bars;
+    struct vpci_bar *physfn_vf_bars;
+    unsigned int i, vf_pos;
+
+    printk("%s %pp is_virtfn %d\n", __func__,
+           &pdev->sbdf, pdev->info.is_virtfn);
+    if ( !pdev->info.is_virtfn )
+    {
+        printk("\t%s %pp nothing to do\n", __func__, &pdev->sbdf);
+        return 0;
+    }
+
+    physfn_pdev = get_physfn_pdev(pdev);
+    if ( !physfn_pdev )
+    {
+        gprintk(XENLOG_ERR, "%pp cannot find physfn\n",
+                &pdev->sbdf);
+        return -ENODEV;
+    }
+
+    /*
+     * Set up BARs for this VF out of PF's VF BARs taking into account
+     * the index of the VF.
+     */
+    bars = pdev->vpci->header.bars;
+    physfn_vf_bars = physfn_pdev->vpci->vf_bars;
+    vf_pos = get_sriov_pf_pos(physfn_pdev);
+
+    for ( i = 0; i < PCI_SRIOV_NUM_BARS; i++)
+    {
+        uint16_t offset = pci_conf_read16(physfn_pdev->sbdf,
+                                          vf_pos + PCI_SRIOV_VF_OFFSET);
+        uint16_t stride = pci_conf_read16(physfn_pdev->sbdf,
+                                          vf_pos + PCI_SRIOV_VF_STRIDE);
+        int vf_idx;
+
+        vf_idx = pdev->sbdf.sbdf;
+        vf_idx -= physfn_pdev->sbdf.sbdf + offset;
+        if ( vf_idx < 0 )
+            return -EINVAL;
+        if ( stride )
+        {
+            if ( vf_idx % stride )
+                return -EINVAL;
+            vf_idx /= stride;
+        }
+
+        bars[i].type = physfn_vf_bars[i].type;
+        bars[i].addr = physfn_vf_bars[i].addr + vf_idx * physfn_vf_bars[i].size;
+        bars[i].size = physfn_vf_bars[i].size;
+        bars[i].prefetchable = physfn_vf_bars[i].prefetchable;
+        printk("%s %pp (phys %pp) bar type %x\n", __func__,
+               &pdev->sbdf, &physfn_pdev->sbdf, bars[i].type);
+    }
+    printk("%s %pp done\n", __func__, &pdev->sbdf);
+    return 0;
+}
+REGISTER_VPCI_INIT(vf_init_bars_virtfn, VPCI_PRIORITY_MIDDLE);
 
 static int vf_init_handlers(struct pci_dev *pdev)
 {
     struct vpci_header *header = &pdev->vpci->header;
     struct vpci_bar *bars;
-    unsigned int i, vf_pos;
+    unsigned int i, vf_pos = 0;
     int rc;
     bool is_hwdom = pci_is_hardware_domain(pdev->domain, pdev->seg, pdev->bus);
 
-    /*
-     * Setup a handler for VENDOR_ID for guests only and allow hwdom reading
-     * directly: the handler is used for SR-IOV virtual functions.
-     */
-    if ( !is_hwdom && pdev->info.is_virtfn )
+    printk("%s %pp is_hwdom %d\n", __func__, &pdev->sbdf, is_hwdom);
+    if ( is_hwdom )
     {
+        vf_pos = get_sriov_pf_pos(pdev);
+        printk("%s %pp vf_pos %x\n", __func__, &pdev->sbdf, vf_pos);
+        if ( !vf_pos )
+            return 0;
+    } else if ( pdev->info.is_virtfn )
+    {
+        /*
+         * Setup a handler for VENDOR_ID for guests only and allow hwdom reading
+         * directly: the handler is used for SR-IOV virtual functions.
+         */
         header->vf_ven_dev_id = guest_get_vf_ven_dev_id(pdev);
         if ( header->vf_ven_dev_id == ~0 )
             return -EINVAL;
 
+        printk("\t%s %pp vpci_add_register\n", __func__, &pdev->sbdf);
         rc = vpci_add_register(pdev->vpci,
                                guest_vendor_id_read, guest_vendor_id_write,
                                PCI_VENDOR_ID, 4, header);
@@ -217,14 +250,14 @@ static int vf_init_handlers(struct pci_dev *pdev)
             return rc;
     }
 
-    vf_pos = get_sriov_pf_pos(pdev);
-    if ( !vf_pos )
-        return 0;
-
     /* Also add handlers for the SR-IOV PF/VF BARs. */
-    bars = pdev->vpci->vf_bars;
+    if ( is_hwdom )
+        bars = pdev->vpci->vf_bars;
+    else
+        bars = pdev->vpci->header.bars;
     for ( i = 0; i < PCI_SRIOV_NUM_BARS; i++)
     {
+        printk("%s %pp bar type %x\n", __func__, &pdev->sbdf, bars[i].type);
         /*
          * FIXME: VFs ROM BAR is read-only and is all zeros. VF may provide
          * access to the PFs ROM via emulation though.
@@ -236,21 +269,26 @@ static int vf_init_handlers(struct pci_dev *pdev)
 
         /* This is either VPCI_BAR_MEM32 or VPCI_BAR_MEM64_{LO|HI}. */
         if ( is_hwdom )
+        {
+            printk("\t%s %pp vpci_add_register\n", __func__, &pdev->sbdf);
             rc = vpci_add_register(pdev->vpci, vpci_hw_read32, vpci_bar_write,
                                    vf_pos + PCI_SRIOV_BAR + i * 4, 4, &bars[i]);
+        }
         else
+        {
+            printk("\t%s %pp vpci_add_register\n", __func__, &pdev->sbdf);
             rc = vpci_add_register(pdev->vpci,
                                    vpci_guest_bar_read, vpci_guest_bar_write,
                                    PCI_BASE_ADDRESS_0 + i * 4, 4, &bars[i]);
+        }
         if ( rc )
             return rc;
-        bars[i].guest_addr = 0;
     }
 
 
     return 0;
 }
-REGISTER_VPCI_INIT(vf_init_handlers, VPCI_PRIORITY_MIDDLE);
+REGISTER_VPCI_INIT(vf_init_handlers, VPCI_PRIORITY_LOW);
 
 /*
  * Local variables:

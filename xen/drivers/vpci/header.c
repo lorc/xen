@@ -636,10 +636,8 @@ static int init_bars(struct pci_dev *pdev)
     int rc;
     bool is_hwdom = pci_is_hardware_domain(pdev->domain, pdev->seg, pdev->bus);
 
-    /* No need to init for virtual functions. */
-    if ( pdev->info.is_virtfn )
-        return 0;
-
+    printk("%s %pp pdev->info.is_virtfn %d\n", __func__, &pdev->sbdf,
+           pdev->info.is_virtfn);
     switch ( pci_conf_read8(pdev->sbdf, PCI_HEADER_TYPE) & 0x7f )
     {
     case PCI_HEADER_TYPE_NORMAL:
@@ -666,6 +664,14 @@ static int init_bars(struct pci_dev *pdev)
                            PCI_COMMAND, 2, header);
     if ( rc )
         return rc;
+
+    /* No need to init for virtual functions. */
+    if ( pdev->info.is_virtfn )
+    {
+        printk("\t%s %pp nothing to do\n", __func__, &pdev->sbdf);
+        return 0;
+    }
+
 
     if ( pdev->ignore_bars )
         return 0;
