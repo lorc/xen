@@ -840,6 +840,16 @@ int dt_count_phandle_with_args(const struct dt_device_node *np,
  */
 int dt_get_pci_domain_nr(struct dt_device_node *node);
 
+/**
+ * dt_get_remove_io_range - Remove the PCI I/O range property value.
+ * @fdt: Pointer to the file descriptor tree.
+ * @node: Device tree node.
+ *
+ * This function will remove the PCI IO range property from the PCI device tree
+ * node.
+ */
+int dt_pci_remove_io_ranges(void *fdt, const struct dt_device_node *node);
+
 struct dt_device_node *dt_find_node_by_phandle(dt_phandle handle);
 
 #ifdef CONFIG_DEVICE_TREE_DEBUG

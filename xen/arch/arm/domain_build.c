@@ -919,6 +919,22 @@ static int __init write_properties(struct domain *d, struct kernel_info *kinfo,
                 continue;
         }
 
+        if ( is_pci_passthrough_enabled() &&
+             dt_device_type_is_equal(node, "pci") &&
+             dt_property_name_is_equal(prop, "ranges") )
+        {
+            /*
+             * PCI IO bar are not mapped to dom0 when PCI passthrough is enabled,
+             * also there is no trap handler register for IO bar therefor remove
+             * the IO range property from the device tree node for dom0.
+             */
+            res = dt_pci_remove_io_ranges(kinfo->fdt, node);
+            if ( res )
+                return res;
+
+            continue;
+        }
+
         res = fdt_property(kinfo->fdt, prop->name, prop_data, prop_len);
 
         if ( res )

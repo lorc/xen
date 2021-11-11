@@ -2195,6 +2195,78 @@ int dt_get_pci_domain_nr(struct dt_device_node *node)
     return (u16)domain;
 }
 
+int dt_pci_remove_io_ranges(void *fdt, const struct dt_device_node *dev)
+{
+    const struct dt_device_node *parent = NULL;
+    const struct dt_bus *bus, *pbus;
+    unsigned int rlen;
+    int na, ns, pna, pns, rone, ret;
+    const __be32 *ranges;
+    __be32 regs[((GUEST_ROOT_ADDRESS_CELLS * 2) + GUEST_ROOT_SIZE_CELLS + 1)
+               * 2];
+    __be32 *addr = &regs[0];
+
+    bus = dt_match_bus(dev);
+    if ( !bus )
+        return 0; /* device is not a bus */
+
+    parent = dt_get_parent(dev);
+    if ( parent == NULL )
+        return -EINVAL;
+
+    ranges = dt_get_property(dev, "ranges", &rlen);
+    if ( ranges == NULL )
+    {
+        printk(XENLOG_ERR "DT: no ranges; cannot enumerate %s\n",
+               dev->full_name);
+        return -EINVAL;
+    }
+    if ( rlen == 0 ) /* Nothing to do */
+        return 0;
+
+    bus->count_cells(dev, &na, &ns);
+    if ( !DT_CHECK_COUNTS(na, ns) )
+    {
+        printk(XENLOG_ERR "dt_parse: Bad cell count for device %s\n",
+                  dev->full_name);
+        return -EINVAL;
+    }
+    pbus = dt_match_bus(parent);
+    if ( pbus == NULL )
+    {
+        printk("DT: %s is not a valid bus\n", parent->full_name);
+        return -EINVAL;
+    }
+
+    pbus->count_cells(dev, &pna, &pns);
+    if ( !DT_CHECK_COUNTS(pna, pns) )
+    {
+        printk(XENLOG_ERR "dt_parse: Bad cell count for parent %s\n",
+               dev->full_name);
+        return -EINVAL;
+    }
+    /* Now walk through the ranges */
+    rlen /= 4;
+    rone = na + pna + ns;
+
+    for ( ; rlen >= rone; rlen -= rone, ranges += rone )
+    {
+        unsigned int flags = bus->get_flags(ranges);
+        if ( flags & IORESOURCE_IO )
+            continue;
+
+        memcpy(addr, ranges, 4 * rone);
+
+        addr += rone;
+    }
+
+    ret = fdt_property(fdt, "ranges", regs, sizeof(regs));
+    if ( ret )
+        return ret;
+
+    return 0;
+}
+
 /*
  * Local variables:
  * mode: C
