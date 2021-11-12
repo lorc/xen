@@ -779,9 +779,6 @@ int arch_domain_create(struct domain *d,
     if ( is_hardware_domain(d) && (rc = domain_vuart_init(d)) )
         goto fail;
 
-    if ( (rc = domain_vpci_init(d)) != 0 )
-        goto fail;
-
     return 0;
 
 fail:
@@ -827,6 +824,8 @@ int arch_domain_soft_reset(struct domain *d)
 
 void arch_domain_creation_finished(struct domain *d)
 {
+    ASSERT(!domain_vpci_init(d));
+
     /*
      * To avoid flushing the whole guest RAM on the first Set/Way, we
      * invalidate the P2M to track what has been accessed.
