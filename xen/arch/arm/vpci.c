@@ -13,6 +13,7 @@
  */
 #include <xen/sched.h>
 #include <xen/vpci.h>
+#include <xen/keyhandler.h>
 
 #include <asm/mmio.h>
 
@@ -246,6 +247,20 @@ unsigned int domain_vpci_get_num_mmio_handlers(struct domain *d)
 
     return count;
 }
+
+static void dump_msi(unsigned char key)
+{
+    printk("MSI information:\n");
+
+    vpci_dump_msi();
+}
+
+static int __init msi_setup_keyhandler(void)
+{
+    register_keyhandler('M', dump_msi, "dump MSI state", 1);
+    return 0;
+}
+__initcall(msi_setup_keyhandler);
 
 /*
  * Local variables:
