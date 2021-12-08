@@ -168,6 +168,11 @@ struct vpci_vcpu {
 };
 
 #ifdef __XEN__
+
+#define VMSIX_ADDR_IN_RANGE(addr, vpci, nr)                               \
+    ((addr) >= vmsix_table_addr(vpci, nr) &&                              \
+     (addr) < vmsix_table_addr(vpci, nr) + vmsix_table_size(vpci, nr))
+
 void vpci_dump_msi(void);
 
 /* Make sure there's a hole in the p2m for the MSIX mmio areas. */
@@ -237,6 +242,22 @@ bool vpci_ecam_write(pci_sbdf_t sbdf, unsigned int reg, unsigned int len,
 
 bool vpci_ecam_read(pci_sbdf_t sbdf, unsigned int reg, unsigned int len,
                     unsigned long *data);
+
+void register_msix_mmio_handler(struct domain *d);
+
+void vpci_msix_add_to_msix_table(struct vpci_msix *msix, struct domain *d);
+
+int msix_write(const struct domain *d, struct vpci_msix *msix,
+               unsigned long addr, unsigned int len, unsigned long data);
+
+int msix_read(struct vpci_msix *msix, unsigned long addr, unsigned int len,
+              unsigned long *data);
+
+u32 vpci_arch_readl(unsigned long addr);
+u64 vpci_arch_readq(unsigned long addr);
+
+void vpci_arch_writel(u32 data, unsigned long addr);
+void vpci_arch_writeq(u64 data, unsigned long addr);
 
 #endif /* __XEN__ */
 

@@ -20,6 +20,7 @@
 #include <xen/acpi.h>
 #include <xen/delay.h>
 #include <xen/keyhandler.h>
+#include <xen/msi.h>
 
 #include "iommu.h"
 
