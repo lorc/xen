@@ -67,6 +67,7 @@ static void vchan_wr(void) {
 		insiz -= ret;
 		memmove(inbuf, inbuf + ret, insiz);
 	}
+	libxenvchan_write(ctrl, "\r\n", strlen("\r\n"));
 }
 
 static void stdout_wr(void) {
