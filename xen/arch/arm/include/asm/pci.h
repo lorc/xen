@@ -28,6 +28,14 @@ struct arch_pci_dev {
     struct device dev;
 };
 
+/* Arch-specific MSI data for vPCI. */
+struct vpci_arch_msi {
+};
+
+/* Arch-specific MSI-X entry data for vPCI. */
+struct vpci_arch_msix_entry {
+};
+
 /*
  * Because of the header cross-dependencies, e.g. we need both
  * struct pci_dev and struct arch_pci_dev at the same time, this cannot be
@@ -117,6 +125,13 @@ int pci_host_iterate_bridges_and_count(struct domain *d,
                                                  struct pci_host_bridge *bridge));
 
 int pci_host_bridge_mappings(struct domain *d);
+
+static inline int
+pci_msi_conf_write_intercept(struct pci_dev *pdev, unsigned int reg,
+                             unsigned int size, uint32_t *data)
+{
+    return 0;
+}
 
 #else   /*!CONFIG_HAS_PCI*/
 
