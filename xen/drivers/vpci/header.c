@@ -31,6 +31,7 @@
 struct map_data {
     struct domain *d;
     const struct vpci_bar *bar;
+    const struct pci_dev *pdev;
     bool map;
 };
 
@@ -43,7 +44,9 @@ static int cf_check map_range(
     for ( ; ; )
     {
         /* Start address of the BAR as seen by the guest. */
-        gfn_t start_gfn = _gfn(PFN_DOWN(is_hardware_domain(map->d)
+        gfn_t start_gfn = _gfn(PFN_DOWN(pci_is_hardware_domain(map->d,
+                                                               map->pdev->seg,
+                                                               map->pdev->bus)
                                         ? map->bar->addr
                                         : map->bar->guest_reg));
         /* Physical start address of the BAR. */
@@ -168,6 +171,7 @@ bool vpci_process_pending(struct vcpu *v)
                 continue;
 
             data.bar = bar;
+            data.pdev = pdev;
             rc = rangeset_consume_ranges(bar->mem, map_range, &data);
 
             if ( rc == -ERESTART )
@@ -193,7 +197,7 @@ bool vpci_process_pending(struct vcpu *v)
                 v->vpci.map_pending = false;
                 pcidevs_read_unlock();
 
-                if ( is_hardware_domain(v->domain) )
+                if ( !pci_is_hardware_domain(v->domain, pdev->seg, pdev->bus) )
                 {
                     pcidevs_write_lock();
                     vpci_remove_device(v->vpci.pdev);
@@ -232,6 +236,7 @@ static int __init apply_map(struct domain *d, const struct pci_dev *pdev,
             continue;
 
         data.bar = bar;
+        data.pdev = pdev;
         while ( (rc = rangeset_consume_ranges(bar->mem, map_range,
                                               &data)) == -ERESTART )
         {
@@ -447,7 +452,7 @@ static void cf_check cmd_write(
 {
     uint16_t current_cmd = pci_conf_read16(pdev->sbdf, reg);
 
-    if ( !is_hardware_domain(pdev->domain) )
+    if ( !pci_is_hardware_domain(pdev->domain, pdev->seg, pdev->bus) )
     {
         struct vpci_header *header = data;
 
@@ -481,7 +486,7 @@ static void cf_check cmd_write(
 static uint32_t cf_check cmd_read(
     const struct pci_dev *pdev, unsigned int reg, void *data)
 {
-    if ( !is_hardware_domain(pdev->domain) )
+    if ( !pci_is_hardware_domain(pdev->domain, pdev->seg, pdev->bus) )
     {
         struct vpci_header *header = data;
 
@@ -669,7 +674,7 @@ static int cf_check init_bars(struct pci_dev *pdev)
     struct vpci_header *header;
     struct vpci_bar *bars;
     int rc;
-    bool is_hwdom = is_hardware_domain(pdev->domain);
+    bool is_hwdom = pci_is_hardware_domain(pdev->domain, pdev->seg, pdev->bus);
 
     ASSERT(pcidevs_write_locked());
 
