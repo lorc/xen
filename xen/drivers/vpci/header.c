@@ -34,6 +34,7 @@
 struct map_data {
     struct domain *d;
     const struct vpci_bar *bar;
+    const struct pci_dev *pdev;
     bool map;
 };
 
@@ -202,6 +203,7 @@ bool vpci_process_pending(struct vcpu *v)
             .d = v->domain,
             .map = v->vpci.cmd & PCI_COMMAND_MEMORY,
             .bar = bar,
+            .pdev = pdev,
         };
         int rc;
 
@@ -233,7 +235,7 @@ bool vpci_process_pending(struct vcpu *v)
 
             read_unlock(&v->domain->pci_lock);
 
-            if ( !is_hardware_domain(v->domain) )
+            if ( !pci_is_hardware_domain(v->domain, pdev->seg, pdev->bus) )
                 domain_crash(v->domain);
 
             return false;
@@ -262,7 +264,7 @@ static int __init apply_map(struct domain *d, const struct pci_dev *pdev,
     for ( i = 0; i < ARRAY_SIZE(header->bars); i++ )
     {
         struct vpci_bar *bar = &header->bars[i];
-        struct map_data data = { .d = d, .map = true, .bar = bar };
+        struct map_data data = { .d = d, .map = true, .bar = bar, .pdev = pdev };
 
         if ( rangeset_is_empty(bar->mem) )
             continue;
@@ -528,7 +530,7 @@ static void cf_check cmd_write(
     struct vpci_header *header = data;
     uint16_t current_cmd = pci_conf_read16(pdev->sbdf, reg);
 
-    if ( !is_hardware_domain(pdev->domain) )
+    if ( !pci_is_hardware_domain(pdev->domain, pdev->seg, pdev->bus) )
     {
         const struct vpci *vpci = pdev->vpci;
         uint16_t excluded = PCI_COMMAND_PARITY | PCI_COMMAND_SERR |
@@ -583,7 +585,8 @@ static void cf_check bar_write(
     struct vpci_bar *bar = data;
     bool hi = false;
 
-    ASSERT(is_hardware_domain(pdev->domain));
+    ASSERT(pci_is_hardware_domain(pdev->domain, pdev->sbdf.seg,
+                                  pdev->sbdf.bus));
 
     if ( bar->type == VPCI_BAR_MEM64_HI )
     {
@@ -784,7 +787,7 @@ static int cf_check init_bars(struct pci_dev *pdev)
     struct vpci_header *header = &pdev->vpci->header;
     struct vpci_bar *bars = header->bars;
     int rc;
-    bool is_hwdom = is_hardware_pci_domain(pdev->domain);
+    bool is_hwdom = pci_is_hardware_domain(pdev->domain, pdev->seg, pdev->bus);
     bool mask_cap_list = false;
     uint8_t type;
 
@@ -824,7 +827,7 @@ static int cf_check init_bars(struct pci_dev *pdev)
     if ( rc )
         return rc;
 
-    if ( !is_hardware_domain(pdev->domain) )
+    if ( !is_hwdom )
     {
         if ( !(pci_conf_read16(pdev->sbdf, PCI_STATUS) & PCI_STATUS_CAP_LIST) )
         {
