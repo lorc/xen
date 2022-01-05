@@ -2652,23 +2652,27 @@ static int arm_smmu_assign_dev(struct domain *d, u8 devfn,
 	struct arm_smmu_xen_domain *xen_domain = dom_iommu(d)->arch.priv;
 
 #ifdef CONFIG_HAS_PCI
-	if ( dev_is_pci(dev) && !is_hardware_pci_domain(d) )
+	if ( dev_is_pci(dev) )
 	{
 		struct pci_dev *pdev = dev_to_pci(dev);
 
-		printk(XENLOG_INFO "Assigning device %04x:%02x:%02x.%u to dom%d\n",
-			pdev->seg, pdev->bus, PCI_SLOT(devfn),
-			PCI_FUNC(devfn), d->domain_id);
+		if ( !pci_is_hardware_domain(d, pdev->seg, pdev->bus) )
+		{
+			printk(XENLOG_INFO
+			       "Assigning device %04x:%02x:%02x.%u to dom%d\n",
+			       pdev->seg, pdev->bus, PCI_SLOT(devfn),
+			       PCI_FUNC(devfn), d->domain_id);
 
-		if ( devfn != pdev->devfn || pdev->domain == d )
-			return 0;
+			if ( devfn != pdev->devfn || pdev->domain == d )
+				return 0;
 
-		list_move(&pdev->domain_list, &d->pdev_list);
-		pdev->domain = d;
+			list_move(&pdev->domain_list, &d->pdev_list);
+			pdev->domain = d;
 
-		/* dom_io is used as a sentinel for quarantined devices */
-		if ( d == dom_io )
-			return 0;
+			/* dom_io is used as a sentinel for quarantined devices */
+			if ( d == dom_io )
+				return 0;
+		}
 	}
 #endif
 
@@ -2751,10 +2755,21 @@ static int arm_smmu_deassign_dev(struct domain *d, uint8_t devfn, struct device 
 static int arm_smmu_reassign_dev(struct domain *s, struct domain *t,
 				u8 devfn,  struct device *dev)
 {
+	struct domain *hwdom;
 	int ret = 0;
 
+#ifdef CONFIG_HAS_PCI
+	if (dev_is_pci(dev))
+	{
+		struct pci_dev *pdev = dev_to_pci(dev);
+
+		hwdom = pci_get_hardware_domain(pdev->seg, pdev->bus);
+	} else
+#endif
+		hwdom = hardware_domain;
+
 	/* Don't allow remapping on other domain than hwdom */
-	if ( t && !is_hardware_domain(t) && (t != dom_io) )
+	if ( t && (t != hwdom) && (t != dom_io) )
 		return -EPERM;
 
 	if (t == s)
