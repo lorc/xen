@@ -1708,6 +1708,12 @@ unsigned long get_upper_mfn_bound(void)
     return max_page - 1;
 }
 
+bool is_memory_hole(mfn_t start, mfn_t end)
+{
+    /* TODO: this needs to be properly implemented. */
+    return true;
+}
+
 /*
  * Local variables:
  * mode: C
