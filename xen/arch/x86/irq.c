@@ -2157,7 +2157,7 @@ int map_domain_pirq(
         struct pci_dev *pdev;
         unsigned int nr = 0;
 
-        ASSERT(pcidevs_locked());
+        ASSERT(pcidevs_locked() || rw_is_locked(&d->pci_lock));
 
         ret = -ENODEV;
         if ( !cpu_has_apic )
@@ -2314,7 +2314,7 @@ int unmap_domain_pirq(struct domain *d, int pirq)
     if ( (pirq < 0) || (pirq >= d->nr_pirqs) )
         return -EINVAL;
 
-    ASSERT(pcidevs_locked());
+    ASSERT(pcidevs_locked() || rw_is_locked(&d->pci_lock));
     ASSERT(rw_is_write_locked(&d->event_lock));
 
     info = pirq_info(d, pirq);
@@ -2908,7 +2908,13 @@ int allocate_and_map_msi_pirq(struct domain *d, int index, int *pirq_p,
 
     msi->irq = irq;
 
-    pcidevs_lock();
+    /*
+     * If we are called via vPCI->vMSI path, we already are holding
+     * d->pci_lock so there is no need to take pcidevs_lock, as it
+     * will cause lock inversion.
+     */
+    if ( !rw_is_locked(&d->pci_lock) )
+        pcidevs_lock();
     /* Verify or get pirq. */
     write_lock(&d->event_lock);
     pirq = allocate_pirq(d, index, *pirq_p, irq, type, &msi->entry_nr);
@@ -2924,7 +2930,8 @@ int allocate_and_map_msi_pirq(struct domain *d, int index, int *pirq_p,
 
  done:
     write_unlock(&d->event_lock);
-    pcidevs_unlock();
+    if ( !rw_is_locked(&d->pci_lock) )
+        pcidevs_unlock();
     if ( ret )
     {
         switch ( type )

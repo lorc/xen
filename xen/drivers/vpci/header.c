@@ -172,6 +172,7 @@ bool vpci_process_pending(struct vcpu *v)
         if ( rc == -ERESTART )
             return true;
 
+        write_lock(&v->domain->pci_lock);
         spin_lock(&v->vpci.pdev->vpci->lock);
         /* Disable memory decoding unconditionally on failure. */
         modify_decoding(v->vpci.pdev,
@@ -190,6 +191,7 @@ bool vpci_process_pending(struct vcpu *v)
              * failure.
              */
             vpci_remove_device(v->vpci.pdev);
+        write_unlock(&v->domain->pci_lock);
     }
 
     return false;
@@ -201,8 +203,20 @@ static int __init apply_map(struct domain *d, const struct pci_dev *pdev,
     struct map_data data = { .d = d, .map = true };
     int rc;
 
+    ASSERT(rw_is_locked(&d->pci_lock));
+
     while ( (rc = rangeset_consume_ranges(mem, map_range, &data)) == -ERESTART )
+    {
+        /*
+         * It's safe to drop and reacquire the lock in this context
+         * without risking pdev disappearing because devices cannot be
+         * removed until the initial domain has been started.
+         */
+        read_unlock(&d->pci_lock);
         process_pending_softirqs();
+        read_lock(&d->pci_lock);
+    }
+
     rangeset_destroy(mem);
     if ( !rc )
         modify_decoding(pdev, cmd, false);
@@ -242,6 +256,8 @@ static int modify_bars(const struct pci_dev *pdev, uint16_t cmd, bool rom_only)
     const struct vpci_msix *msix = pdev->vpci->msix;
     unsigned int i;
     int rc;
+
+    ASSERT(rw_is_write_locked(&pdev->domain->pci_lock));
 
     if ( !mem )
         return -ENOMEM;
@@ -521,6 +537,8 @@ static int cf_check init_bars(struct pci_dev *pdev)
     struct vpci_header *header = &pdev->vpci->header;
     struct vpci_bar *bars = header->bars;
     int rc;
+
+    ASSERT(rw_is_locked(&pdev->domain->pci_lock));
 
     switch ( pci_conf_read8(pdev->sbdf, PCI_HEADER_TYPE) & 0x7f )
     {
