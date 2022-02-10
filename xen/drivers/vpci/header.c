@@ -762,6 +762,12 @@ static int cf_check init_bars(struct pci_dev *pdev)
         return -EOPNOTSUPP;
     }
 
+    /* Reset the command register for guests. We want to preserve only
+     * PCI_COMMAND_VGA_PALETTE as it is configured by firmware */
+    cmd = pci_conf_read16(pdev->sbdf, PCI_COMMAND);
+    if ( !is_hwdom )
+        cmd_write(pdev, PCI_COMMAND, cmd & PCI_COMMAND_VGA_PALETTE, header);
+
     /* Setup a handler for the command register. */
     if ( is_hwdom )
         rc = vpci_add_register(pdev->vpci, vpci_hw_read16, cmd_write, PCI_COMMAND,
@@ -776,7 +782,6 @@ static int cf_check init_bars(struct pci_dev *pdev)
         return 0;
 
     /* Disable memory decoding before sizing. */
-    cmd = pci_conf_read16(pdev->sbdf, PCI_COMMAND);
     if ( cmd & PCI_COMMAND_MEMORY )
         pci_conf_write16(pdev->sbdf, PCI_COMMAND, cmd & ~PCI_COMMAND_MEMORY);
 
