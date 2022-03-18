@@ -26,6 +26,7 @@
 #include <libxl_utils.h>
 #include <libxlutil.h>
 
+#include "_libxl_types.h"
 #include "xl.h"
 #include "xl_utils.h"
 #include "xl_parse.h"
@@ -857,6 +858,32 @@ out:
     return rc;
 }
 
+static int parse_renesas_vmq_config(libxl_device_renesas_vmq *renesas_vmq,
+                                    char *token)
+{
+    char *oparg;
+    int rc;
+
+    if (MATCH_OPTION("backend", token, oparg)) {
+        renesas_vmq->backend_domname = strdup(oparg);
+        rc = 0;
+    } else if (MATCH_OPTION("type", token, oparg)) {
+        rc = libxl_renesas_vmq_type_from_string(oparg, &renesas_vmq->type);
+    } else if (MATCH_OPTION("if_num", token, oparg)) {
+        renesas_vmq->if_num =  strtoul(oparg, NULL, 0);
+        rc = 0;
+    } else if (MATCH_OPTION("osid", token, oparg)) {
+        renesas_vmq->osid =  strtoul(oparg, NULL, 0);
+        rc = 0;
+    } else {
+        fprintf(stderr, "Unknown string \"%s\" in renesas_vmq spec\n", token);
+        rc = 1; goto out;
+    }
+
+out:
+    return rc;
+}
+
 static int parse_vsnd_params(libxl_vsnd_params *params, char *token)
 {
     char *oparg;
@@ -1214,7 +1241,8 @@ void parse_config_data(const char *config_source,
     long l, vcpus = 0;
     XLU_Config *config;
     XLU_ConfigList *cpus, *vbds, *nics, *pcis, *cvfbs, *cpuids, *vtpms,
-                   *usbctrls, *usbdevs, *p9devs, *vdispls, *pvcallsifs_devs;
+                   *usbctrls, *usbdevs, *p9devs, *vdispls, *pvcallsifs_devs,
+                   *renesas_vmqs;
     XLU_ConfigList *channels, *ioports, *irqs, *iomem, *viridian, *dtdevs,
                    *mca_caps;
     int num_ioports, num_irqs, num_iomem, num_cpus, num_viridian, num_mca_caps;
@@ -2164,6 +2192,30 @@ void parse_config_data(const char *config_source,
 
             if (backend)
                     replace_string(&pvcallsif->backend_domname, backend);
+        }
+    }
+
+    if (!xlu_cfg_get_list(config, "renesas_vmq", &renesas_vmqs, 0, 0)) {
+        d_config->num_renesas_vmqs = 0;
+        d_config->renesas_vmqs = NULL;
+        while ((buf = xlu_cfg_get_listitem(renesas_vmqs, d_config->num_renesas_vmqs)) != NULL) {
+            libxl_device_renesas_vmq *renesas_vmq;
+            char * buf2 = strdup(buf);
+            char *p;
+            renesas_vmq = ARRAY_EXTEND_INIT(d_config->renesas_vmqs,
+                                            d_config->num_renesas_vmqs,
+                                            libxl_device_renesas_vmq_init);
+            p = strtok (buf2, ",");
+            while (p != NULL)
+            {
+                while (*p == ' ') p++;
+                if (parse_renesas_vmq_config(renesas_vmq, p)) {
+                    free(buf2);
+                    exit(1);
+                }
+                p = strtok (NULL, ",");
+            }
+            free(buf2);
         }
     }
 
