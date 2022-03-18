@@ -955,6 +955,20 @@ libxl_device_vsnd = Struct("device_vsnd", [
     ("pcms", Array(libxl_vsnd_pcm, "num_vsnd_pcms"))
     ])
 
+libxl_renesas_vmq_type = Enumeration("renesas_vmq_type", [
+    (1,  "TSN"),
+    (2,  "VMQ"),
+    ])
+
+libxl_device_renesas_vmq = Struct("device_renesas_vmq", [
+    ("backend_domid", libxl_domid),
+    ("backend_domname", string),
+    ("devid", libxl_devid),
+    ("type", libxl_renesas_vmq_type),
+    ("if_num", uint32),
+    ("osid", uint32),
+    ])
+
 libxl_domain_config = Struct("domain_config", [
     ("c_info", libxl_domain_create_info),
     ("b_info", libxl_domain_build_info),
@@ -971,6 +985,7 @@ libxl_domain_config = Struct("domain_config", [
     ("pvcallsifs", Array(libxl_device_pvcallsif, "num_pvcallsifs")),
     ("vdispls", Array(libxl_device_vdispl, "num_vdispls")),
     ("vsnds", Array(libxl_device_vsnd, "num_vsnds")),
+    ("renesas_vmqs", Array(libxl_device_renesas_vmq, "num_renesas_vmqs")),
     # a channel manifests as a console with a name,
     # see docs/misc/channels.txt
     ("channels", Array(libxl_device_channel, "num_channels")),
@@ -1126,6 +1141,18 @@ libxl_vkbinfo = Struct("vkbinfo", [
     ("evtch", integer),
     ("rref", integer)
     ], dir=DIR_OUT)
+
+libxl_renesas_vmq_info = Struct("renesas_vmq_info", [
+    ("backend", string),
+    ("backend_id", uint32),
+    ("frontend", string),
+    ("frontend_id", uint32),
+    ("devid", libxl_devid),
+    ("state", integer),
+    ("type", libxl_renesas_vmq_type),
+    ("if_num", uint32),
+    ("osid", uint32),
+    ])
 
 # NUMA node characteristics: size and free are how much memory it has, and how
 # much of it is free, respectively. dists is an array of distances from this
