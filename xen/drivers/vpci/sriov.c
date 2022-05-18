@@ -245,7 +245,6 @@ static uint32_t vf_cmd_read(const struct pci_dev *pdev, unsigned int reg,
     return vpci_hw_read16(pdev, reg, data);
 }
 
-/* This is called for virtual functions only and for guest domains. */
 static int vf_init_handlers(struct pci_dev *pdev)
 {
     struct vpci_header *header = &pdev->vpci->header;
@@ -253,8 +252,7 @@ static int vf_init_handlers(struct pci_dev *pdev)
     unsigned int i;
     int rc;
 
-    if ( !pdev->info.is_virtfn ||
-         pci_is_hardware_domain(pdev->domain, pdev->seg, pdev->bus) )
+    if ( !pdev->info.is_virtfn )
         return 0;
 
     /* Reset the command register for the guest. */
