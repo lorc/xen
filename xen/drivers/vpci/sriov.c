@@ -204,7 +204,10 @@ static int vf_init_bars_virtfn(struct pci_dev *pdev)
                                           vf_pos + PCI_SRIOV_VF_OFFSET);
         uint16_t stride = pci_conf_read16(physfn_pdev->sbdf,
                                           vf_pos + PCI_SRIOV_VF_STRIDE);
+        char str[32];
         int vf_idx;
+
+        snprintf(str, sizeof(str), "%pp:BAR%d", &pdev->sbdf, i);
 
         vf_idx = pdev->sbdf.sbdf;
         vf_idx -= physfn_pdev->sbdf.sbdf + offset;
@@ -221,6 +224,7 @@ static int vf_init_bars_virtfn(struct pci_dev *pdev)
         bars[i].addr = physfn_vf_bars[i].addr + vf_idx * physfn_vf_bars[i].size;
         bars[i].size = physfn_vf_bars[i].size;
         bars[i].prefetchable = physfn_vf_bars[i].prefetchable;
+        bars[i].mem = rangeset_new(pdev->domain, str, RANGESETF_no_print);
     }
 
     return 0;
