@@ -467,6 +467,15 @@ void cf_check cmd_write(const struct pci_dev *pdev, unsigned int reg,
 #endif
     }
 
+    if ( pdev->info.is_virtfn &&
+         pci_is_hardware_domain(pdev->domain, pdev->seg, pdev->bus) )
+    {
+        /* Read emulated PCI_COMMAND_MEMORY bit for virtual function */
+        current_cmd |= pdev->vpci->header.guest_cmd & PCI_COMMAND_MEMORY;
+        /* And store emulated PCI_COMMAND_MEMORY bit back */
+        pdev->vpci->header.guest_cmd = cmd & PCI_COMMAND_MEMORY;
+    }
+
     /*
      * Let Dom0 play with all the bits directly except for the memory
      * decoding one.

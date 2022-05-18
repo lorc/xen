@@ -231,6 +231,20 @@ static int vf_init_bars_virtfn(struct pci_dev *pdev)
 }
 REGISTER_VPCI_INIT(vf_init_bars_virtfn, VPCI_PRIORITY_MIDDLE);
 
+static uint32_t vf_cmd_read(const struct pci_dev *pdev, unsigned int reg,
+                         void *data)
+{
+    if ( pdev->info.is_virtfn &&
+         pci_is_hardware_domain(pdev->domain, pdev->seg, pdev->bus) )
+    {
+        struct vpci_header *header = data;
+
+        return header->guest_cmd;
+    }
+
+    return vpci_hw_read16(pdev, reg, data);
+}
+
 /* This is called for virtual functions only and for guest domains. */
 static int vf_init_handlers(struct pci_dev *pdev)
 {
@@ -261,7 +275,7 @@ static int vf_init_handlers(struct pci_dev *pdev)
         return rc;
 
     /* Setup a handler for the command register. */
-    rc = vpci_add_register(pdev->vpci, vpci_hw_read16, vpci_cmd_write,
+    rc = vpci_add_register(pdev->vpci, vf_cmd_read, vpci_cmd_write,
                            PCI_COMMAND, 2, header);
     if ( rc )
         return rc;
