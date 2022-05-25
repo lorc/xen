@@ -167,9 +167,8 @@ static int vf_init_bars(struct pci_dev *pdev)
 REGISTER_VPCI_INIT(vf_init_bars, VPCI_PRIORITY_MIDDLE);
 
 /*
- * This is called for the virtual functions of the physical function which
- * live in the hardware domain and is used to prepare BARs of the
- * virtual function's pdev.
+ * This is called for the virtual functions of the physical function
+ * and is used to prepare BARs of the virtual function's pdev.
  */
 static int vf_init_bars_virtfn(struct pci_dev *pdev)
 {
@@ -178,8 +177,7 @@ static int vf_init_bars_virtfn(struct pci_dev *pdev)
     struct vpci_bar *physfn_vf_bars;
     unsigned int i, vf_pos;
 
-    if ( !pdev->info.is_virtfn ||
-         !pci_is_hardware_domain(pdev->domain, pdev->seg, pdev->bus) )
+    if ( !pdev->info.is_virtfn)
         return 0;
 
     physfn_pdev = get_physfn_pdev(pdev);
