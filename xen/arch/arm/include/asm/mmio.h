@@ -24,7 +24,7 @@
 
 #include <asm/hsr.h>
 
-#define MAX_IO_HANDLER  64
+#define MAX_IO_HANDLER  16
 
 typedef struct
 {
