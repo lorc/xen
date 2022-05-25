@@ -1374,6 +1374,7 @@ static int ipmmu_dt_xlate(struct device *dev,
     if ( spec->args_count != 1 || spec->args[0] >= IPMMU_UTLB_MAX )
         return -EINVAL;
 
+    dev_info(dev, "dt_xlate ids = %u\n", spec->args[0]);
     ret = iommu_fwspec_add_ids(dev, spec->args, 1);
     if ( ret )
         return ret;
@@ -1472,18 +1473,18 @@ static void bdf_msk_set(struct gen4_pci_ipmmu_info *info, unsigned int reg_id,
            (data << CNVIDMSK_BDF_MSK_SHIFT), info->base + CNVIDMSK(reg_id));
 }
 
-static int osid_reg_alloc(struct gen4_pci_ipmmu_info *info)
-{
-    int ret;
+/* static int osid_reg_alloc(struct gen4_pci_ipmmu_info *info) */
+/* { */
+/*     int ret; */
 
-    ret = find_first_zero_bit(info->osid_regs, NUM_OSID_REGS);
-    if ( ret != NUM_OSID_REGS )
-        set_bit(ret, info->osid_regs);
-    else
-        ret = -EBUSY;
+/*     ret = find_first_zero_bit(info->osid_regs, NUM_OSID_REGS); */
+/*     if ( ret != NUM_OSID_REGS ) */
+/*         set_bit(ret, info->osid_regs); */
+/*     else */
+/*         ret = -EBUSY; */
 
-    return ret;
-}
+/*     return ret; */
+/* } */
 
 static void osid_reg_free(struct gen4_pci_ipmmu_info *info, unsigned int reg_id)
 {
@@ -1545,15 +1546,16 @@ static int ipmmu_add_device(u8 devfn, struct device *dev)
 
         osid_regs_init(info);
 
-        ret = osid_reg_alloc(info);
-        if ( ret < 0 )
-        {
-            dev_err(dev, "No unused OSID regs\n");
-            return ret;
-        }
-        reg_id = ret;
-
+        /* ret = osid_reg_alloc(info); */
+        /* if ( ret < 0 ) */
+        /* { */
+        /*     dev_err(dev, "No unused OSID regs\n"); */
+        /*     return ret; */
+        /* } */
+        /* reg_id = ret; */
+        dev_info(dev, "ids[0] = %d (0x%x)\n", fwspec->ids[0], fwspec->ids[0]);
         osid = fwspec->ids[0] - info->utlb_osid0;
+        reg_id = osid;
         osid_bdf_set(info, reg_id, osid, pdev->sbdf.bdf);
         bdf_msk_set(info, reg_id, 0);
 
