@@ -18,6 +18,7 @@
  */
 
 #include <xen/sched.h>
+#include <xen/vmap.h>
 #include <xen/vpci.h>
 #include <xen/vmap.h>
 
