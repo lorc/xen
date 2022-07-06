@@ -447,8 +447,8 @@ static int modify_bars(const struct pci_dev *pdev, uint16_t cmd, bool rom_only)
 }
 
 /* TODO: Add proper emulation for all bits of the command register. */
-void cf_check cmd_write(const struct pci_dev *pdev, unsigned int reg,
-                        uint32_t cmd, void *data)
+void cf_check vpci_cmd_write(const struct pci_dev *pdev, unsigned int reg,
+                             uint32_t cmd, void *data)
 {
     uint16_t current_cmd = pci_conf_read16(pdev->sbdf, reg);
 
@@ -505,8 +505,8 @@ static uint32_t cf_check cmd_read(
     return pci_conf_read16(pdev->sbdf, reg);
 }
 
-void cf_check bar_write(const struct pci_dev *pdev, unsigned int reg,
-                        uint32_t val, void *data)
+void cf_check vpci_bar_write(const struct pci_dev *pdev, unsigned int reg,
+                             uint32_t val, void *data)
 {
     struct vpci_bar *bar = data;
     bool hi = false;
@@ -549,8 +549,8 @@ void cf_check bar_write(const struct pci_dev *pdev, unsigned int reg,
     pci_conf_write32(pdev->sbdf, reg, val);
 }
 
-void cf_check guest_bar_write(const struct pci_dev *pdev, unsigned int reg,
-                              uint32_t val, void *data)
+void cf_check vpci_guest_bar_write(const struct pci_dev *pdev, unsigned int reg,
+                                   uint32_t val, void *data)
 {
     struct vpci_bar *bar = data;
     bool hi = false;
@@ -592,8 +592,8 @@ void cf_check guest_bar_write(const struct pci_dev *pdev, unsigned int reg,
     bar->guest_reg = guest_reg;
 }
 
-uint32_t cf_check guest_bar_read(const struct pci_dev *pdev, unsigned int reg,
-                                 void *data)
+uint32_t cf_check vpci_guest_bar_read(const struct pci_dev *pdev, unsigned int reg,
+                                      void *data)
 {
     const struct vpci_bar *bar = data;
     bool hi = false;

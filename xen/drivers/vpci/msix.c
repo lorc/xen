@@ -20,6 +20,7 @@
 #include <xen/msi.h>
 #include <xen/sched.h>
 #include <xen/vpci.h>
+#include <xen/vmap.h>
 
 #include <asm/p2m.h>
 
@@ -236,7 +237,7 @@ int cf_check msix_read(struct vpci_msix *msix, unsigned long addr, unsigned int 
     {
         struct vpci *vpci = msix->pdev->vpci;
         unsigned int idx = addr - vmsix_table_addr(vpci, VPCI_MSIX_PBA);
-        const void __iomem *pba = get_pba(vpci);
+        const char __iomem *pba = get_pba(vpci);
 
         /*
          * Access to PBA.
@@ -250,16 +251,17 @@ int cf_check msix_read(struct vpci_msix *msix, unsigned long addr, unsigned int 
             gprintk(XENLOG_WARNING,
                     "%pp: unable to map MSI-X PBA, report all pending\n",
                     &msix->pdev->sbdf);
-            return X86EMUL_OKAY;
+            return VPCI_EMUL_OKAY;
         }
 
         switch ( len )
         {
-            *data = vpci_arch_readl(pba + idx);
+        case 4:
+            *data = vpci_arch_readl((unsigned long)(pba + idx));
             break;
 
         case 8:
-            *data = vpci_arch_readq(pba + idx);
+            *data = vpci_arch_readq((unsigned long)(pba + idx));
             break;
 
         default:
@@ -329,7 +331,7 @@ int cf_check msix_write(const struct domain *d, struct vpci_msix *msix,
     {
         struct vpci *vpci = msix->pdev->vpci;
         unsigned int idx = addr - vmsix_table_addr(vpci, VPCI_MSIX_PBA);
-        const void __iomem *pba = get_pba(vpci);
+        const char __iomem *pba = get_pba(vpci);
 
         if ( !pci_is_hardware_domain(d, msix->pdev->seg, msix->pdev->bus) )
             /* Ignore writes to PBA for DomUs, it's behavior is undefined. */
@@ -347,10 +349,10 @@ int cf_check msix_write(const struct domain *d, struct vpci_msix *msix,
         switch ( len )
         {
         case 4:
-            vpci_arch_writel(data, pba + idx);
+            vpci_arch_writel(data, (unsigned long)(pba + idx));
             break;
         case 8:
-            vpci_arch_writeq(data, pba + idx);
+            vpci_arch_writeq(data, (unsigned long)(pba + idx));
             break;
 
         default:
