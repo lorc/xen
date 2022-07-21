@@ -3183,7 +3183,13 @@ static void device_model_spawn_outcome(libxl__egc *egc,
     /* Check if spawn failed */
     if (rc) goto out;
 
-    if (d_config->b_info.device_model_version
+    /*
+     * XXX Maybe it should be: if (!d_config || ...), but
+     * libxl: error: libxl_qmp.c:1334:qmp_ev_lock_aquired:
+     * Domain 2:Failed to connect to QMP socket /var/run/xen/qmp-libxl-2: No such file or directory
+     * Maybe in that case we need to update cmd line args.
+     */
+    if (d_config && d_config->b_info.device_model_version
             == LIBXL_DEVICE_MODEL_VERSION_QEMU_XEN) {
         rc = libxl__ev_time_register_rel(ao, &dmss->timeout,
                                          devise_model_postconfig_timeout,
