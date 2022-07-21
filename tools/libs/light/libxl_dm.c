@@ -1553,18 +1553,6 @@ static int libxl__build_device_model_args_new(libxl__gc *gc,
         if (!libxl__acpi_defbool_val(b_info)) {
             flexarray_append(dm_args, "-no-acpi");
         }
-        if (b_info->max_vcpus > 1) {
-            flexarray_append(dm_args, "-smp");
-            if (b_info->avail_vcpus.size) {
-                int nr_set_cpus = 0;
-                nr_set_cpus = libxl_bitmap_count_set(&b_info->avail_vcpus);
-
-                flexarray_append(dm_args, GCSPRINTF("%d,maxcpus=%d",
-                                                    nr_set_cpus,
-                                                    b_info->max_vcpus));
-            } else
-                flexarray_append(dm_args, GCSPRINTF("%d", b_info->max_vcpus));
-        }
         for (i = 0; i < num_nics; i++) {
             if (nics[i].nictype == LIBXL_NIC_TYPE_VIF_IOEMU) {
                 char *smac = GCSPRINTF(LIBXL_MAC_FMT,
@@ -1803,6 +1791,7 @@ static int libxl__build_device_model_args_new(libxl__gc *gc,
     /*
      * swtpm needs to be started at system boot with the following
      * command line parameters:
+     * mkdir /tmp/vtpm2
      * swtpm socket --tpmstate dir=/tmp/vtpm2 --ctrl type=unixio,path=/tmp/vtpm2/swtpm-sock
      *
      * The socket path needs to correspond to the one passed to QEMU
@@ -1813,6 +1802,22 @@ static int libxl__build_device_model_args_new(libxl__gc *gc,
         flexarray_append(dm_args, "socket,id=chrtpm,path=/tmp/vtpm2/swtpm-sock");
         flexarray_append(dm_args, "-tpmdev");
         flexarray_append(dm_args, "emulator,id=tpm0,chardev=chrtpm");
+    }
+
+    if (b_info->type == LIBXL_DOMAIN_TYPE_HVM ||
+        b_info->type == LIBXL_DOMAIN_TYPE_PVH) {
+        if (b_info->max_vcpus > 1) {
+            flexarray_append(dm_args, "-smp");
+            if (b_info->avail_vcpus.size) {
+                int nr_set_cpus = 0;
+                nr_set_cpus = libxl_bitmap_count_set(&b_info->avail_vcpus);
+
+                flexarray_append(dm_args, GCSPRINTF("%d,maxcpus=%d",
+                                                    nr_set_cpus,
+                                                    b_info->max_vcpus));
+            } else
+                flexarray_append(dm_args, GCSPRINTF("%d", b_info->max_vcpus));
+        }
     }
 
     flexarray_append(dm_args, "-machine");
