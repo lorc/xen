@@ -177,7 +177,7 @@ int pci_add_device(u16 seg, u8 bus, u8 devfn,
 int pci_remove_device(u16 seg, u8 bus, u8 devfn);
 int pci_ro_device(int seg, int bus, int devfn);
 int pci_hide_device(unsigned int seg, unsigned int bus, unsigned int devfn);
-struct pci_dev *pci_get_pdev(const struct domain *d, pci_sbdf_t sbdf);
+struct pci_dev *pci_get_pdev(struct domain *d, pci_sbdf_t sbdf);
 struct pci_dev *pci_get_real_pdev(pci_sbdf_t sbdf);
 void pci_check_disable_device(u16 seg, u8 bus, u8 devfn);
 

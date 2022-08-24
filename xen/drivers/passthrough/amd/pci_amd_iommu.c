@@ -96,20 +96,25 @@ static int __must_check allocate_domain_resources(struct domain *d)
     return rc;
 }
 
-static bool any_pdev_behind_iommu(const struct domain *d,
+static bool any_pdev_behind_iommu(struct domain *d,
                                   const struct pci_dev *exclude,
                                   const struct amd_iommu *iommu)
 {
     const struct pci_dev *pdev;
 
+    spin_lock(&d->pdevs_lock);
     for_each_pdev ( d, pdev )
     {
         if ( pdev == exclude )
             continue;
 
         if ( find_iommu_for_device(pdev->seg, pdev->sbdf.bdf) == iommu )
+	{
+	    spin_unlock(&d->pdevs_lock);
             return true;
+	}
     }
+    spin_unlock(&d->pdevs_lock);
 
     return false;
 }

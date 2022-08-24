@@ -267,6 +267,7 @@ static int modify_bars(const struct pci_dev *pdev, uint16_t cmd, bool rom_only)
      * Check for overlaps with other BARs. Note that only BARs that are
      * currently mapped (enabled) are checked for overlaps.
      */
+    spin_lock(&pdev->domain->pdevs_lock);
     for_each_pdev ( pdev->domain, tmp )
     {
         if ( tmp == pdev )
@@ -306,11 +307,13 @@ static int modify_bars(const struct pci_dev *pdev, uint16_t cmd, bool rom_only)
                 printk(XENLOG_G_WARNING "Failed to remove [%lx, %lx]: %d\n",
                        start, end, rc);
                 rangeset_destroy(mem);
+                spin_unlock( &pdev->domain->pdevs_lock);
                 return rc;
             }
         }
     }
 
+    spin_unlock( &pdev->domain->pdevs_lock);
     ASSERT(dev);
 
     if ( system_state < SYS_STATE_active )

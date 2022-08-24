@@ -457,6 +457,7 @@ struct domain
 
 #ifdef CONFIG_HAS_PCI
     struct list_head pdev_list;
+    spinlock_t pdevs_lock;
 #endif
 
 #ifdef CONFIG_HAS_PASSTHROUGH

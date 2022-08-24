@@ -523,7 +523,9 @@ static void __init _pci_hide_device(struct pci_dev *pdev)
     if ( pdev->domain )
         return;
     pdev->domain = dom_xen;
+    spin_lock(&dom_xen->pdevs_lock);
     list_add(&pdev->domain_list, &dom_xen->pdev_list);
+    spin_unlock(&dom_xen->pdevs_lock);
 }
 
 int __init pci_hide_device(unsigned int seg, unsigned int bus,
@@ -595,7 +597,7 @@ struct pci_dev *pci_get_real_pdev(pci_sbdf_t sbdf)
     return pdev;
 }
 
-struct pci_dev *pci_get_pdev(const struct domain *d, pci_sbdf_t sbdf)
+struct pci_dev *pci_get_pdev(struct domain *d, pci_sbdf_t sbdf)
 {
     struct pci_dev *pdev;
 
@@ -620,9 +622,16 @@ struct pci_dev *pci_get_pdev(const struct domain *d, pci_sbdf_t sbdf)
                 return pdev;
     }
     else
+    {
+        spin_lock(&d->pdevs_lock);
         list_for_each_entry ( pdev, &d->pdev_list, domain_list )
             if ( pdev->sbdf.bdf == sbdf.bdf )
+            {
+                spin_unlock(&d->pdevs_lock);
                 return pdev;
+            }
+        spin_unlock(&d->pdevs_lock);
+    }
 
     return NULL;
 }
@@ -817,7 +826,9 @@ int pci_add_device(u16 seg, u8 bus, u8 devfn,
     if ( !pdev->domain )
     {
         pdev->domain = hardware_domain;
+        spin_lock(&hardware_domain->pdevs_lock);
         list_add(&pdev->domain_list, &hardware_domain->pdev_list);
+        spin_unlock(&hardware_domain->pdevs_lock);
 
         /*
          * For devices not discovered by Xen during boot, add vPCI handlers
@@ -827,7 +838,9 @@ int pci_add_device(u16 seg, u8 bus, u8 devfn,
         if ( ret )
         {
             printk(XENLOG_ERR "Setup of vPCI failed: %d\n", ret);
+            spin_lock(&pdev->domain->pdevs_lock);
             list_del(&pdev->domain_list);
+            spin_unlock(&pdev->domain->pdevs_lock);
             pdev->domain = NULL;
             goto out;
         }
@@ -835,7 +848,9 @@ int pci_add_device(u16 seg, u8 bus, u8 devfn,
         if ( ret )
         {
             vpci_remove_device(pdev);
+            spin_lock(&pdev->domain->pdevs_lock);
             list_del(&pdev->domain_list);
+            spin_unlock(&pdev->domain->pdevs_lock);
             pdev->domain = NULL;
             goto out;
         }
@@ -885,7 +900,11 @@ int pci_remove_device(u16 seg, u8 bus, u8 devfn)
             pci_cleanup_msi(pdev);
             ret = iommu_remove_device(pdev);
             if ( pdev->domain )
+            {
+                spin_lock(&pdev->domain->pdevs_lock);
                 list_del(&pdev->domain_list);
+                spin_unlock(&pdev->domain->pdevs_lock);
+            }
             printk(XENLOG_DEBUG "PCI remove device %pp\n", &pdev->sbdf);
             free_pdev(pseg, pdev);
             break;
@@ -967,12 +986,14 @@ int pci_release_devices(struct domain *d)
         pcidevs_unlock();
         return ret;
     }
+    spin_lock(&d->pdevs_lock);
     list_for_each_entry_safe ( pdev, tmp, &d->pdev_list, domain_list )
     {
         bus = pdev->bus;
         devfn = pdev->devfn;
         ret = deassign_device(d, pdev->seg, bus, devfn) ?: ret;
     }
+    spin_unlock(&d->pdevs_lock);
     pcidevs_unlock();
 
     return ret;
@@ -1194,7 +1215,9 @@ static int __hwdom_init cf_check _setup_hwdom_pci_devices(
             if ( !pdev->domain )
             {
                 pdev->domain = ctxt->d;
+                spin_lock(&pdev->domain->pdevs_lock);
                 list_add(&pdev->domain_list, &ctxt->d->pdev_list);
+                spin_unlock(&pdev->domain->pdevs_lock);
                 setup_one_hwdom_device(ctxt, pdev);
             }
             else if ( pdev->domain == dom_xen )
@@ -1556,6 +1579,7 @@ static int iommu_get_device_group(
         return group_id;
 
     pcidevs_lock();
+    spin_lock(&d->pdevs_lock);
     for_each_pdev( d, pdev )
     {
         unsigned int b = pdev->bus;
@@ -1571,6 +1595,7 @@ static int iommu_get_device_group(
         if ( sdev_id < 0 )
         {
             pcidevs_unlock();
+            spin_unlock(&d->pdevs_lock);
             return sdev_id;
         }
 
@@ -1581,6 +1606,7 @@ static int iommu_get_device_group(
             if ( unlikely(copy_to_guest_offset(buf, i, &bdf, 1)) )
             {
                 pcidevs_unlock();
+                spin_unlock(&d->pdevs_lock);
                 return -EFAULT;
             }
             i++;
@@ -1588,6 +1614,7 @@ static int iommu_get_device_group(
     }
 
     pcidevs_unlock();
+    spin_unlock(&d->pdevs_lock);
 
     return i;
 }

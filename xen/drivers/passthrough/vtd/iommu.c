@@ -183,12 +183,13 @@ static void cleanup_domid_map(domid_t domid, struct vtd_iommu *iommu)
     }
 }
 
-static bool any_pdev_behind_iommu(const struct domain *d,
+static bool any_pdev_behind_iommu(struct domain *d,
                                   const struct pci_dev *exclude,
                                   const struct vtd_iommu *iommu)
 {
     const struct pci_dev *pdev;
 
+    spin_lock(&d->pdevs_lock);
     for_each_pdev ( d, pdev )
     {
         const struct acpi_drhd_unit *drhd;
@@ -198,8 +199,12 @@ static bool any_pdev_behind_iommu(const struct domain *d,
 
         drhd = acpi_find_matched_drhd_unit(pdev);
         if ( drhd && drhd->iommu == iommu )
+        {
+            spin_unlock(&d->pdevs_lock);
             return true;
+        }
     }
+    spin_unlock(&d->pdevs_lock);
 
     return false;
 }
@@ -208,7 +213,7 @@ static bool any_pdev_behind_iommu(const struct domain *d,
  * If no other devices under the same iommu owned by this domain,
  * clear iommu in iommu_bitmap and clear domain_id in domid_bitmap.
  */
-static void check_cleanup_domid_map(const struct domain *d,
+static void check_cleanup_domid_map(struct domain *d,
                                     const struct pci_dev *exclude,
                                     struct vtd_iommu *iommu)
 {
