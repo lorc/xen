@@ -38,6 +38,7 @@
 
 struct pci_seg {
     struct list_head alldevs_list;
+    spinlock_t alldevs_lock;
     u16 nr;
     unsigned long *ro_map;
     /* bus2bridge_lock protects bus2bridge array */
@@ -93,6 +94,7 @@ static struct pci_seg *alloc_pseg(u16 seg)
     pseg->nr = seg;
     INIT_LIST_HEAD(&pseg->alldevs_list);
     spin_lock_init(&pseg->bus2bridge_lock);
+    spin_lock_init(&pseg->alldevs_lock);
 
     if ( radix_tree_insert(&pci_segments, seg, pseg) )
     {
@@ -385,9 +387,13 @@ static struct pci_dev *alloc_pdev(struct pci_seg *pseg, u8 bus, u8 devfn)
     unsigned int pos;
     int rc;
 
+    spin_lock(&pseg->alldevs_lock);
     list_for_each_entry ( pdev, &pseg->alldevs_list, alldevs_list )
         if ( pdev->bus == bus && pdev->devfn == devfn )
+        {
+            spin_unlock(&pseg->alldevs_lock);
             return pdev;
+        }
 
     pdev = xzalloc(struct pci_dev);
     if ( !pdev )
@@ -404,10 +410,12 @@ static struct pci_dev *alloc_pdev(struct pci_seg *pseg, u8 bus, u8 devfn)
     if ( rc )
     {
         xfree(pdev);
+        spin_unlock(&pseg->alldevs_lock);
         return NULL;
     }
 
     list_add(&pdev->alldevs_list, &pseg->alldevs_list);
+    spin_unlock(&pseg->alldevs_lock);
 
     /* update bus2bridge */
     switch ( pdev->type = pdev_type(pseg->nr, bus, devfn) )
@@ -611,15 +619,20 @@ struct pci_dev *pci_get_pdev(struct domain *d, pci_sbdf_t sbdf)
      */
     if ( !d || is_hardware_domain(d) )
     {
-        const struct pci_seg *pseg = get_pseg(sbdf.seg);
+        struct pci_seg *pseg = get_pseg(sbdf.seg);
 
         if ( !pseg )
             return NULL;
 
+        spin_lock(&pseg->alldevs_lock);
         list_for_each_entry ( pdev, &pseg->alldevs_list, alldevs_list )
             if ( pdev->sbdf.bdf == sbdf.bdf &&
                  (!d || pdev->domain == d) )
+            {
+                spin_unlock(&pseg->alldevs_lock);
                 return pdev;
+            }
+        spin_unlock(&pseg->alldevs_lock);
     }
     else
     {
@@ -893,6 +906,7 @@ int pci_remove_device(u16 seg, u8 bus, u8 devfn)
         return -ENODEV;
 
     pcidevs_lock();
+    spin_lock(&pseg->alldevs_lock);
     list_for_each_entry ( pdev, &pseg->alldevs_list, alldevs_list )
         if ( pdev->bus == bus && pdev->devfn == devfn )
         {
@@ -907,10 +921,12 @@ int pci_remove_device(u16 seg, u8 bus, u8 devfn)
             }
             printk(XENLOG_DEBUG "PCI remove device %pp\n", &pdev->sbdf);
             free_pdev(pseg, pdev);
+            list_del(&pdev->alldevs_list);
             break;
         }
 
     pcidevs_unlock();
+    spin_unlock(&pseg->alldevs_lock);
     return ret;
 }
 
@@ -1363,6 +1379,7 @@ static int cf_check _dump_pci_devices(struct pci_seg *pseg, void *arg)
 
     printk("==== segment %04x ====\n", pseg->nr);
 
+    spin_lock(&pseg->alldevs_lock);
     list_for_each_entry ( pdev, &pseg->alldevs_list, alldevs_list )
     {
         printk("%pp - ", &pdev->sbdf);
@@ -1376,6 +1393,7 @@ static int cf_check _dump_pci_devices(struct pci_seg *pseg, void *arg)
         pdev_dump_msi(pdev);
         printk("\n");
     }
+    spin_unlock(&pseg->alldevs_lock);
 
     return 0;
 }
