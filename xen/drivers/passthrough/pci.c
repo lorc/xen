@@ -1381,7 +1381,8 @@ static int cf_check _dump_pci_devices(struct pci_seg *pseg, void *arg)
         else
 #endif
             printk("%pd", pdev->domain);
-        printk(" - node %-3d", (pdev->node != NUMA_NO_NODE) ? pdev->node : -1);
+        printk(" - node %-3d refcnt %d", (pdev->node != NUMA_NO_NODE) ? pdev->node : -1,
+               atomic_read(&pdev->refcnt));
         pdev_dump_msi(pdev);
         printk("\n");
     }
