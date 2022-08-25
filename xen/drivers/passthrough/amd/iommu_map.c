@@ -724,14 +724,18 @@ int cf_check amd_iommu_get_reserved_device_memory(
         if ( !iommu )
         {
             /* May need to trigger the workaround in find_iommu_for_device(). */
-            const struct pci_dev *pdev;
+            struct pci_dev *pdev;
 
             pcidevs_lock();
             pdev = pci_get_pdev(NULL, sbdf);
             pcidevs_unlock();
 
             if ( pdev )
+            {
                 iommu = find_iommu_for_device(seg, bdf);
+                /* XXX: Should we hold pdev reference till end of the loop? */
+                pcidev_put(pdev);
+            }
             if ( !iommu )
                 continue;
         }

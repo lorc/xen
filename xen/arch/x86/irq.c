@@ -2174,6 +2174,7 @@ int map_domain_pirq(
                 msi->entry_nr = ret;
                 ret = -ENFILE;
             }
+	    pcidev_put(pdev);
             goto done;
         }
 
@@ -2188,6 +2189,7 @@ int map_domain_pirq(
             msi_desc->irq = -1;
             msi_free_irq(msi_desc);
             ret = -EBUSY;
+	    pcidev_put(pdev);
             goto done;
         }
 
@@ -2272,10 +2274,12 @@ int map_domain_pirq(
             }
             msi_desc->irq = -1;
             msi_free_irq(msi_desc);
+	    pcidev_put(pdev);
             goto done;
         }
 
         set_domain_irq_pirq(d, irq, info);
+	pcidev_put(pdev);
         spin_unlock_irqrestore(&desc->lock, flags);
     }
     else

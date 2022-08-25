@@ -91,8 +91,10 @@ int pci_conf_write_intercept(unsigned int seg, unsigned int bdf,
     pcidevs_lock();
 
     pdev = pci_get_pdev(NULL, PCI_SBDF(seg, bdf));
-    if ( pdev )
+    if ( pdev ) {
         rc = pci_msi_conf_write_intercept(pdev, reg, size, data);
+	pcidev_put(pdev);
+    }
 
     pcidevs_unlock();
 

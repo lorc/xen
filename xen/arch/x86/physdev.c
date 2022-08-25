@@ -533,7 +533,14 @@ ret_t do_physdev_op(int cmd, XEN_GUEST_HANDLE_PARAM(void) arg)
         pcidevs_lock();
         pdev = pci_get_pdev(NULL,
                             PCI_SBDF(0, restore_msi.bus, restore_msi.devfn));
-        ret = pdev ? pci_restore_msi_state(pdev) : -ENODEV;
+        if ( pdev )
+        {
+            ret = pci_restore_msi_state(pdev);
+            pcidev_put(pdev);
+        }
+        else
+            ret = -ENODEV;
+
         pcidevs_unlock();
         break;
     }
@@ -548,7 +555,13 @@ ret_t do_physdev_op(int cmd, XEN_GUEST_HANDLE_PARAM(void) arg)
 
         pcidevs_lock();
         pdev = pci_get_pdev(NULL, PCI_SBDF(dev.seg, dev.bus, dev.devfn));
-        ret = pdev ? pci_restore_msi_state(pdev) : -ENODEV;
+        if ( pdev )
+        {
+            ret =  pci_restore_msi_state(pdev);
+            pcidev_put(pdev);
+        }
+        else
+            ret = -ENODEV;
         pcidevs_unlock();
         break;
     }

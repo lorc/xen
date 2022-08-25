@@ -644,6 +644,7 @@ static void cf_check parse_ppr_log_entry(struct amd_iommu *iommu, u32 entry[])
 
     if ( pdev )
         guest_iommu_add_ppr_log(pdev->domain, entry);
+    pcidev_put(pdev);
 }
 
 static void iommu_check_ppr_log(struct amd_iommu *iommu)
@@ -747,6 +748,11 @@ static bool_t __init set_iommu_interrupt_handler(struct amd_iommu *iommu)
     }
 
     pcidevs_lock();
+    /*
+     * XXX: it is unclear if this device can be removed. Right now
+     * there is no code that clears msi.dev, so no one will decrease
+     * refcount on it.
+     */
     iommu->msi.dev = pci_get_pdev(NULL, PCI_SBDF(iommu->seg, iommu->bdf));
     pcidevs_unlock();
     if ( !iommu->msi.dev )
@@ -1272,7 +1278,7 @@ static int __init cf_check amd_iommu_setup_device_table(
     {
         if ( ivrs_mappings[bdf].valid )
         {
-            const struct pci_dev *pdev = NULL;
+            struct pci_dev *pdev = NULL;
 
             /* add device table entry */
             iommu_dte_add_device_entry(&dt[bdf], &ivrs_mappings[bdf]);
@@ -1297,7 +1303,10 @@ static int __init cf_check amd_iommu_setup_device_table(
                         pdev->msix ? pdev->msix->nr_entries
                                    : pdev->msi_maxvec);
                 if ( !ivrs_mappings[bdf].intremap_table )
+		{
+		    pcidev_put(pdev);
                     return -ENOMEM;
+		}
 
                 if ( pdev->phantom_stride )
                 {
@@ -1315,6 +1324,7 @@ static int __init cf_check amd_iommu_setup_device_table(
                             ivrs_mappings[bdf].intremap_inuse;
                     }
                 }
+		pcidev_put(pdev);
             }
 
             amd_iommu_set_intremap_table(

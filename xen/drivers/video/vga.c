@@ -114,7 +114,7 @@ void __init video_endboot(void)
         for ( bus = 0; bus < 256; ++bus )
             for ( devfn = 0; devfn < 256; ++devfn )
             {
-                const struct pci_dev *pdev;
+                struct pci_dev *pdev;
                 u8 b = bus, df = devfn, sb;
 
                 pcidevs_lock();
@@ -126,7 +126,11 @@ void __init video_endboot(void)
                                      PCI_CLASS_DEVICE) != 0x0300 ||
                      !(pci_conf_read16(PCI_SBDF(0, bus, devfn), PCI_COMMAND) &
                        (PCI_COMMAND_IO | PCI_COMMAND_MEMORY)) )
+		{
+		    if (pdev)
+			pcidev_put(pdev);
                     continue;
+		}
 
                 while ( b )
                 {
@@ -144,7 +148,10 @@ void __init video_endboot(void)
                             if ( pci_conf_read16(PCI_SBDF(0, b, df),
                                                  PCI_BRIDGE_CONTROL) &
                                  PCI_BRIDGE_CTL_VGA )
+			    {
+				pcidev_put(pdev);
                                 continue;
+			    }
                             break;
                         }
                         break;
@@ -157,6 +164,7 @@ void __init video_endboot(void)
                            bus, PCI_SLOT(devfn), PCI_FUNC(devfn));
                     pci_hide_device(0, bus, devfn);
                 }
+		pcidev_put(pdev);
             }
     }
 

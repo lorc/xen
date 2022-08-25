@@ -572,6 +572,10 @@ int msi_free_irq(struct msi_desc *entry)
                         virt_to_fix((unsigned long)entry->mask_base));
 
     list_del(&entry->list);
+
+    /* Corresponds to pcidev_get() in msi[x]_capability_init()  */
+    pcidev_put(entry->dev);
+
     xfree(entry);
     return 0;
 }
@@ -644,6 +648,7 @@ static int msi_capability_init(struct pci_dev *dev,
             entry[i].msi.mpos = mpos;
         entry[i].msi.nvec = 0;
         entry[i].dev = dev;
+	pcidev_get(dev);
     }
     entry->msi.nvec = nvec;
     entry->irq = irq;
@@ -703,22 +708,36 @@ static u64 read_pci_mem_bar(u16 seg, u8 bus, u8 slot, u8 func, u8 bir, int vf)
              !num_vf || !offset || (num_vf > 1 && !stride) ||
              bir >= PCI_SRIOV_NUM_BARS ||
              !pdev->vf_rlen[bir] )
+        {
+            if ( pdev )
+                pcidev_put(pdev);
             return 0;
+        }
         base = pos + PCI_SRIOV_BAR;
         vf -= PCI_BDF(bus, slot, func) + offset;
         if ( vf < 0 )
+        {
+            pcidev_put(pdev);
             return 0;
+        }
         if ( stride )
         {
             if ( vf % stride )
+            {
+                pcidev_put(pdev);
                 return 0;
+            }
             vf /= stride;
         }
         if ( vf >= num_vf )
+        {
+            pcidev_put(pdev);
             return 0;
+        }
         BUILD_BUG_ON(ARRAY_SIZE(pdev->vf_rlen) != PCI_SRIOV_NUM_BARS);
         disp = vf * pdev->vf_rlen[bir];
         limit = PCI_SRIOV_NUM_BARS;
+        pcidev_put(pdev);
     }
     else switch ( pci_conf_read8(PCI_SBDF(seg, bus, slot, func),
                                  PCI_HEADER_TYPE) & 0x7f )
@@ -925,6 +944,8 @@ static int msix_capability_init(struct pci_dev *dev,
         entry->dev = dev;
         entry->mask_base = base;
 
+	pcidev_get(dev);
+
         list_add_tail(&entry->list, &dev->msi_list);
         *desc = entry;
     }
@@ -999,6 +1020,7 @@ static int __pci_enable_msi(struct msi_info *msi, struct msi_desc **desc)
 {
     struct pci_dev *pdev;
     struct msi_desc *old_desc;
+    int ret;
 
     ASSERT(pcidevs_locked());
     pdev = pci_get_pdev(NULL, msi->sbdf);
@@ -1010,6 +1032,7 @@ static int __pci_enable_msi(struct msi_info *msi, struct msi_desc **desc)
     {
         printk(XENLOG_ERR "irq %d already mapped to MSI on %pp\n",
                msi->irq, &pdev->sbdf);
+	pcidev_put(pdev);
         return -EEXIST;
     }
 
@@ -1020,7 +1043,10 @@ static int __pci_enable_msi(struct msi_info *msi, struct msi_desc **desc)
         __pci_disable_msix(old_desc);
     }
 
-    return msi_capability_init(pdev, msi->irq, desc, msi->entry_nr);
+    ret = msi_capability_init(pdev, msi->irq, desc, msi->entry_nr);
+    pcidev_put(pdev);
+
+    return ret;
 }
 
 static void __pci_disable_msi(struct msi_desc *entry)
@@ -1054,6 +1080,7 @@ static int __pci_enable_msix(struct msi_info *msi, struct msi_desc **desc)
 {
     struct pci_dev *pdev;
     struct msi_desc *old_desc;
+    int ret;
 
     ASSERT(pcidevs_locked());
     pdev = pci_get_pdev(NULL, msi->sbdf);
@@ -1061,13 +1088,17 @@ static int __pci_enable_msix(struct msi_info *msi, struct msi_desc **desc)
         return -ENODEV;
 
     if ( msi->entry_nr >= pdev->msix->nr_entries )
+    {
+	pcidev_put(pdev);
         return -EINVAL;
+    }
 
     old_desc = find_msi_entry(pdev, msi->irq, PCI_CAP_ID_MSIX);
     if ( old_desc )
     {
         printk(XENLOG_ERR "irq %d already mapped to MSI-X on %pp\n",
                msi->irq, &pdev->sbdf);
+	pcidev_put(pdev);
         return -EEXIST;
     }
 
@@ -1078,7 +1109,11 @@ static int __pci_enable_msix(struct msi_info *msi, struct msi_desc **desc)
         __pci_disable_msi(old_desc);
     }
 
-    return msix_capability_init(pdev, msi, desc);
+    ret = msix_capability_init(pdev, msi, desc);
+
+    pcidev_put(pdev);
+
+    return ret;
 }
 
 static void _pci_cleanup_msix(struct arch_msix *msix)
@@ -1160,6 +1195,8 @@ int pci_prepare_msix(u16 seg, u8 bus, u8 devfn, bool off)
     else
         rc = msix_capability_init(pdev, NULL, NULL);
     pcidevs_unlock();
+
+    pcidev_put(pdev);
 
     return rc;
 }

@@ -13,6 +13,7 @@
 #include <xen/irq.h>
 #include <xen/pci_regs.h>
 #include <xen/pfn.h>
+#include <xen/refcnt.h>
 #include <asm/device.h>
 #include <asm/numa.h>
 
@@ -116,6 +117,9 @@ struct pci_dev {
     /* Device misbehaving, prevent assigning it to guests. */
     bool broken;
 
+    /* Reference counter */
+    refcnt_t refcnt;
+
     enum pdev_type {
         DEV_TYPE_PCI_UNKNOWN,
         DEV_TYPE_PCIe_ENDPOINT,
@@ -160,6 +164,14 @@ void pcidevs_lock(void);
 void pcidevs_unlock(void);
 bool_t __must_check pcidevs_locked(void);
 
+/*
+ * Acquire and release reference to the given device. Holding
+ * reference ensures that device will not disappear under feet, but
+ * does not guarantee that code has exclusive access to the device.
+ */
+void pcidev_get(struct pci_dev *pdev);
+void pcidev_put(struct pci_dev *pdev);
+
 bool_t pci_known_segment(u16 seg);
 bool_t pci_device_detect(u16 seg, u8 bus, u8 dev, u8 func);
 int scan_pci_devices(void);
@@ -177,8 +189,14 @@ int pci_add_device(u16 seg, u8 bus, u8 devfn,
 int pci_remove_device(u16 seg, u8 bus, u8 devfn);
 int pci_ro_device(int seg, int bus, int devfn);
 int pci_hide_device(unsigned int seg, unsigned int bus, unsigned int devfn);
+
+/*
+ * Next two functions will find a requested device and acquire
+ * reference to it. Use pcidev_put() to release the reference.
+ */
 struct pci_dev *pci_get_pdev(struct domain *d, pci_sbdf_t sbdf);
 struct pci_dev *pci_get_real_pdev(pci_sbdf_t sbdf);
+
 void pci_check_disable_device(u16 seg, u8 bus, u8 devfn);
 
 uint8_t pci_conf_read8(pci_sbdf_t sbdf, unsigned int reg);

@@ -429,6 +429,8 @@ static int __must_check map_me_phantom_function(struct domain *domain,
         rc = domain_context_unmap_one(domain, drhd->iommu, 0,
                                       PCI_DEVFN(dev, 7));
 
+    pcidev_put(pdev);
+
     return rc;
 }
 
