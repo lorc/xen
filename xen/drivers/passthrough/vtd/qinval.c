@@ -238,7 +238,10 @@ static int __must_check dev_invalidate_sync(struct vtd_iommu *iommu,
         if ( d == NULL )
             return rc;
 
+	spin_lock(&iommu->ats_list_lock);
         iommu_dev_iotlb_flush_timeout(d, pdev);
+	spin_unlock(&iommu->ats_list_lock);
+
         rcu_unlock_domain(d);
     }
     else if ( rc == -ETIMEDOUT )

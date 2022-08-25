@@ -1641,6 +1641,7 @@ void iommu_dev_iotlb_flush_timeout(struct domain *d, struct pci_dev *pdev)
 {
     pcidevs_lock();
 
+    /* iommu->ats_list_lock is taken by the caller of this function */
     disable_ats_device(pdev);
 
     ASSERT(pdev->domain);

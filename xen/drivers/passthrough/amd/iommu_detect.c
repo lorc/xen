@@ -160,6 +160,7 @@ int __init amd_iommu_detect_one_acpi(
     }
 
     spin_lock_init(&iommu->lock);
+    spin_lock_init(&iommu->ats_list_lock);
     INIT_LIST_HEAD(&iommu->ats_devices);
 
     iommu->seg = ivhd_block->pci_segment_group;

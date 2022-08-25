@@ -1281,6 +1281,7 @@ int __init iommu_alloc(struct acpi_drhd_unit *drhd)
     spin_lock_init(&iommu->lock);
     spin_lock_init(&iommu->register_lock);
     spin_lock_init(&iommu->intremap.lock);
+    spin_lock_init(&iommu->ats_list_lock);
 
     iommu->drhd = drhd;
     drhd->iommu = iommu;
@@ -1769,7 +1770,11 @@ static int domain_context_mapping(struct domain *domain, u8 devfn,
         if ( ret > 0 )
             ret = 0;
         if ( !ret && devfn == pdev->devfn && ats_device(pdev, drhd) > 0 )
+        {
+            spin_lock(&drhd->iommu->ats_list_lock);
             enable_ats_device(pdev, &drhd->iommu->ats_devices);
+            spin_unlock(&drhd->iommu->ats_list_lock);
+        }
 
         break;
 
@@ -1977,7 +1982,11 @@ static const struct acpi_drhd_unit *domain_context_unmap(
                    domain, &PCI_SBDF(seg, bus, devfn));
         ret = domain_context_unmap_one(domain, iommu, bus, devfn);
         if ( !ret && devfn == pdev->devfn && ats_device(pdev, drhd) > 0 )
+        {
+            spin_lock(&iommu->ats_list_lock);
             disable_ats_device(pdev);
+            spin_unlock(&iommu->ats_list_lock);
+        }
 
         break;
 
@@ -2374,7 +2383,9 @@ static int cf_check intel_iommu_enable_device(struct pci_dev *pdev)
     if ( ret <= 0 )
         return ret;
 
+    spin_lock(&drhd->iommu->ats_list_lock);
     ret = enable_ats_device(pdev, &drhd->iommu->ats_devices);
+    spin_unlock(&drhd->iommu->ats_list_lock);
 
     return ret >= 0 ? 0 : ret;
 }

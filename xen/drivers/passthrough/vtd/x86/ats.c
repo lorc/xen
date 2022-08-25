@@ -117,6 +117,7 @@ int dev_invalidate_iotlb(struct vtd_iommu *iommu, u16 did,
     if ( !ecap_dev_iotlb(iommu->ecap) )
         return ret;
 
+    spin_lock(&iommu->ats_list_lock);
     list_for_each_entry_safe( pdev, temp, &iommu->ats_devices, ats.list )
     {
         bool_t sbit;
@@ -155,12 +156,14 @@ int dev_invalidate_iotlb(struct vtd_iommu *iommu, u16 did,
             break;
         default:
             dprintk(XENLOG_WARNING VTDPREFIX, "invalid vt-d flush type\n");
+	    spin_unlock(&iommu->ats_list_lock);
             return -EOPNOTSUPP;
         }
 
         if ( !ret )
             ret = rc;
     }
+    spin_unlock(&iommu->ats_list_lock);
 
     return ret;
 }

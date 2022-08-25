@@ -276,7 +276,11 @@ static int __must_check amd_iommu_setup_domain_device(
          !pci_ats_enabled(iommu->seg, bus, pdev->devfn) )
     {
         if ( devfn == pdev->devfn )
+	{
+	    spin_lock(&iommu->ats_list_lock);
             enable_ats_device(pdev, &iommu->ats_devices);
+	    spin_unlock(&iommu->ats_list_lock);
+	}
 
         amd_iommu_flush_iotlb(devfn, pdev, INV_IOMMU_ALL_PAGES_ADDRESS, 0);
     }
@@ -416,7 +420,11 @@ static void amd_iommu_disable_domain_device(const struct domain *domain,
 
     if ( pci_ats_device(iommu->seg, bus, pdev->devfn) &&
          pci_ats_enabled(iommu->seg, bus, pdev->devfn) )
+    {
+	spin_lock(&iommu->ats_list_lock);
         disable_ats_device(pdev);
+	spin_unlock(&iommu->ats_list_lock);
+    }
 
     BUG_ON ( iommu->dev_table.buffer == NULL );
     req_id = get_dma_requestor_id(iommu->seg, PCI_BDF(bus, devfn));

@@ -106,6 +106,7 @@ struct amd_iommu {
     int enabled;
 
     struct list_head ats_devices;
+    spinlock_t ats_list_lock;
 };
 
 struct ivrs_unity_map {
