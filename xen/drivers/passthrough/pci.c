@@ -50,24 +50,6 @@ struct pci_seg {
         u8 devfn;
     } bus2bridge[MAX_BUSES];
 };
-
-static spinlock_t _pcidevs_lock = SPIN_LOCK_UNLOCKED;
-
-void pcidevs_lock(void)
-{
-    spin_lock_recursive(&_pcidevs_lock);
-}
-
-void pcidevs_unlock(void)
-{
-    spin_unlock_recursive(&_pcidevs_lock);
-}
-
-bool_t pcidevs_locked(void)
-{
-    return !!spin_is_locked(&_pcidevs_lock);
-}
-
 static struct radix_tree_root pci_segments;
 
 static inline struct pci_seg *get_pseg(u16 seg)

@@ -157,16 +157,6 @@ struct pci_dev {
 #define has_arch_pdevs(d) (!list_empty(&(d)->pdev_list))
 
 /*
- * The pcidevs_lock protect alldevs_list, and the assignment for the 
- * devices, it also sync the access to the msi capability that is not
- * interrupt handling related (the mask bit register).
- */
-
-void pcidevs_lock(void);
-void pcidevs_unlock(void);
-bool_t __must_check pcidevs_locked(void);
-
-/*
  * Acquire and release reference to the given device. Holding
  * reference ensures that device will not disappear under feet, but
  * does not guarantee that code has exclusive access to the device.
