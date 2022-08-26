@@ -893,8 +893,6 @@ int pi_update_irte(const struct pi_desc *pi_desc, const struct pirq *pirq,
 
     spin_unlock_irq(&desc->lock);
 
-    ASSERT(pcidevs_locked());
-
     return msi_msg_write_remap_rte(msi_desc, &msi_desc->msg);
 
  unlock_out:

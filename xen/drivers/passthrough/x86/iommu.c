@@ -207,7 +207,6 @@ int iommu_identity_mapping(struct domain *d, p2m_access_t p2ma,
     struct identity_map *map;
     struct domain_iommu *hd = dom_iommu(d);
 
-    ASSERT(pcidevs_locked());
     ASSERT(base < end);
 
     /*
@@ -479,8 +478,6 @@ domid_t iommu_alloc_domid(unsigned long *map)
     static unsigned int start;
     unsigned int idx = find_next_zero_bit(map, UINT16_MAX - DOMID_MASK, start);
 
-    ASSERT(pcidevs_locked());
-
     if ( idx >= UINT16_MAX - DOMID_MASK )
         idx = find_first_zero_bit(map, UINT16_MAX - DOMID_MASK);
     if ( idx >= UINT16_MAX - DOMID_MASK )
@@ -495,8 +492,6 @@ domid_t iommu_alloc_domid(unsigned long *map)
 
 void iommu_free_domid(domid_t domid, unsigned long *map)
 {
-    ASSERT(pcidevs_locked());
-
     if ( domid == DOMID_INVALID )
         return;
 

@@ -127,8 +127,6 @@ static int context_set_domain_id(struct context_entry *context,
 {
     unsigned int i;
 
-    ASSERT(pcidevs_locked());
-
     if ( domid_mapping(iommu) )
     {
         unsigned int nr_dom = cap_ndoms(iommu->cap);
@@ -1882,7 +1880,6 @@ int domain_context_unmap_one(
     int iommu_domid, rc, ret;
     bool_t flush_dev_iotlb;
 
-    ASSERT(pcidevs_locked());
     spin_lock(&iommu->lock);
 
     maddr = bus_to_context_maddr(iommu, bus);
@@ -2601,7 +2598,6 @@ static void __hwdom_init setup_hwdom_rmrr(struct domain *d)
     u16 bdf;
     int ret, i;
 
-    pcidevs_lock();
     for_each_rmrr_device ( rmrr, bdf, i )
     {
         /*
@@ -2616,7 +2612,6 @@ static void __hwdom_init setup_hwdom_rmrr(struct domain *d)
             dprintk(XENLOG_ERR VTDPREFIX,
                      "IOMMU: mapping reserved region failed\n");
     }
-    pcidevs_unlock();
 }
 
 static struct iommu_state {
