@@ -726,9 +726,7 @@ int cf_check amd_iommu_get_reserved_device_memory(
             /* May need to trigger the workaround in find_iommu_for_device(). */
             struct pci_dev *pdev;
 
-            pcidevs_lock();
             pdev = pci_get_pdev(NULL, sbdf);
-            pcidevs_unlock();
 
             if ( pdev )
             {
@@ -848,7 +846,6 @@ int cf_check amd_iommu_quarantine_init(struct pci_dev *pdev, bool scratch_page)
     const struct ivrs_mappings *ivrs_mappings = get_ivrs_mappings(pdev->seg);
     int rc;
 
-    ASSERT(pcidevs_locked());
     ASSERT(!hd->arch.amd.root_table);
     ASSERT(page_list_empty(&hd->arch.pgtables.list));
 
@@ -902,8 +899,6 @@ int cf_check amd_iommu_quarantine_init(struct pci_dev *pdev, bool scratch_page)
 void amd_iommu_quarantine_teardown(struct pci_dev *pdev)
 {
     struct domain_iommu *hd = dom_iommu(dom_io);
-
-    ASSERT(pcidevs_locked());
 
     if ( !pdev->arch.amd.root_table )
         return;

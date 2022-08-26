@@ -638,10 +638,7 @@ static void cf_check parse_ppr_log_entry(struct amd_iommu *iommu, u32 entry[])
     uint16_t device_id = iommu_get_devid_from_cmd(entry[0]);
     struct pci_dev *pdev;
 
-    pcidevs_lock();
     pdev = pci_get_real_pdev(PCI_SBDF(iommu->seg, device_id));
-    pcidevs_unlock();
-
     if ( pdev )
         guest_iommu_add_ppr_log(pdev->domain, entry);
     pcidev_put(pdev);
@@ -747,14 +744,12 @@ static bool_t __init set_iommu_interrupt_handler(struct amd_iommu *iommu)
         return 0;
     }
 
-    pcidevs_lock();
     /*
      * XXX: it is unclear if this device can be removed. Right now
      * there is no code that clears msi.dev, so no one will decrease
      * refcount on it.
      */
     iommu->msi.dev = pci_get_pdev(NULL, PCI_SBDF(iommu->seg, iommu->bdf));
-    pcidevs_unlock();
     if ( !iommu->msi.dev )
     {
         AMD_IOMMU_WARN("no pdev for %pp\n",
@@ -1289,9 +1284,7 @@ static int __init cf_check amd_iommu_setup_device_table(
             {
                 if ( !pci_init )
                     continue;
-                pcidevs_lock();
                 pdev = pci_get_pdev(NULL, PCI_SBDF(seg, bdf));
-                pcidevs_unlock();
             }
 
             if ( pdev && (pdev->msix || pdev->msi_maxvec) )

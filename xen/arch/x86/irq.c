@@ -2156,8 +2156,6 @@ int map_domain_pirq(
         struct pci_dev *pdev;
         unsigned int nr = 0;
 
-        ASSERT(pcidevs_locked());
-
         ret = -ENODEV;
         if ( !cpu_has_apic )
             goto done;
@@ -2317,7 +2315,6 @@ int unmap_domain_pirq(struct domain *d, int pirq)
     if ( (pirq < 0) || (pirq >= d->nr_pirqs) )
         return -EINVAL;
 
-    ASSERT(pcidevs_locked());
     ASSERT(rw_is_write_locked(&d->event_lock));
 
     info = pirq_info(d, pirq);
@@ -2423,7 +2420,6 @@ void free_domain_pirqs(struct domain *d)
 {
     int i;
 
-    pcidevs_lock();
     write_lock(&d->event_lock);
 
     for ( i = 0; i < d->nr_pirqs; i++ )
@@ -2431,7 +2427,6 @@ void free_domain_pirqs(struct domain *d)
             unmap_domain_pirq(d, i);
 
     write_unlock(&d->event_lock);
-    pcidevs_unlock();
 }
 
 static void cf_check dump_irqs(unsigned char key)
@@ -2911,7 +2906,6 @@ int allocate_and_map_msi_pirq(struct domain *d, int index, int *pirq_p,
 
     msi->irq = irq;
 
-    pcidevs_lock();
     /* Verify or get pirq. */
     write_lock(&d->event_lock);
     pirq = allocate_pirq(d, index, *pirq_p, irq, type, &msi->entry_nr);
@@ -2927,7 +2921,6 @@ int allocate_and_map_msi_pirq(struct domain *d, int index, int *pirq_p,
 
  done:
     write_unlock(&d->event_lock);
-    pcidevs_unlock();
     if ( ret )
     {
         switch ( type )

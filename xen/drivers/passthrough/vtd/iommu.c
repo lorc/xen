@@ -1490,7 +1490,6 @@ int domain_context_mapping_one(
     if ( QUARANTINE_SKIP(domain, pgd_maddr) )
         return 0;
 
-    ASSERT(pcidevs_locked());
     spin_lock(&iommu->lock);
     maddr = bus_to_context_maddr(iommu, bus);
     context_entries = (struct context_entry *)map_vtd_domain_page(maddr);
@@ -1710,8 +1709,6 @@ static int domain_context_mapping(struct domain *domain, u8 devfn,
      */
     if ( drhd && drhd->iommu->node != NUMA_NO_NODE )
         dom_iommu(domain)->node = drhd->iommu->node;
-
-    ASSERT(pcidevs_locked());
 
     for_each_rmrr_device( rmrr, bdf, i )
     {
@@ -2072,8 +2069,6 @@ static void quarantine_teardown(struct pci_dev *pdev,
 {
     struct domain_iommu *hd = dom_iommu(dom_io);
 
-    ASSERT(pcidevs_locked());
-
     if ( !pdev->arch.vtd.pgd_maddr )
         return;
 
@@ -2340,8 +2335,6 @@ static int cf_check intel_iommu_add_device(u8 devfn, struct pci_dev *pdev)
     struct acpi_rmrr_unit *rmrr;
     u16 bdf;
     int ret, i;
-
-    ASSERT(pcidevs_locked());
 
     if ( !pdev->domain )
         return -EINVAL;
@@ -3176,7 +3169,6 @@ static int cf_check intel_iommu_quarantine_init(struct pci_dev *pdev,
     bool rmrr_found = false;
     int rc;
 
-    ASSERT(pcidevs_locked());
     ASSERT(!hd->arch.vtd.pgd_maddr);
     ASSERT(page_list_empty(&hd->arch.pgtables.list));
 

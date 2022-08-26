@@ -117,9 +117,7 @@ void __init video_endboot(void)
                 struct pci_dev *pdev;
                 u8 b = bus, df = devfn, sb;
 
-                pcidevs_lock();
                 pdev = pci_get_pdev(NULL, PCI_SBDF(0, bus, devfn));
-                pcidevs_unlock();
 
                 if ( !pdev ||
                      pci_conf_read16(PCI_SBDF(0, bus, devfn),

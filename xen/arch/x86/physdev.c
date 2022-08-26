@@ -162,11 +162,9 @@ int physdev_unmap_pirq(domid_t domid, int pirq)
             goto free_domain;
     }
 
-    pcidevs_lock();
     write_lock(&d->event_lock);
     ret = unmap_domain_pirq(d, pirq);
     write_unlock(&d->event_lock);
-    pcidevs_unlock();
 
  free_domain:
     rcu_unlock_domain(d);
@@ -530,7 +528,6 @@ ret_t do_physdev_op(int cmd, XEN_GUEST_HANDLE_PARAM(void) arg)
         if ( copy_from_guest(&restore_msi, arg, 1) != 0 )
             break;
 
-        pcidevs_lock();
         pdev = pci_get_pdev(NULL,
                             PCI_SBDF(0, restore_msi.bus, restore_msi.devfn));
         if ( pdev )
@@ -541,7 +538,6 @@ ret_t do_physdev_op(int cmd, XEN_GUEST_HANDLE_PARAM(void) arg)
         else
             ret = -ENODEV;
 
-        pcidevs_unlock();
         break;
     }
 
@@ -553,7 +549,6 @@ ret_t do_physdev_op(int cmd, XEN_GUEST_HANDLE_PARAM(void) arg)
         if ( copy_from_guest(&dev, arg, 1) != 0 )
             break;
 
-        pcidevs_lock();
         pdev = pci_get_pdev(NULL, PCI_SBDF(dev.seg, dev.bus, dev.devfn));
         if ( pdev )
         {
@@ -562,7 +557,7 @@ ret_t do_physdev_op(int cmd, XEN_GUEST_HANDLE_PARAM(void) arg)
         }
         else
             ret = -ENODEV;
-        pcidevs_unlock();
+
         break;
     }
 
