@@ -203,10 +203,14 @@ static struct msi_desc *msixtbl_addr_to_desc(
 
     nr_entry = (addr - entry->gtable) / PCI_MSIX_ENTRY_SIZE;
 
+    pcidev_lock(entry->pdev);
     list_for_each_entry( desc, &entry->pdev->msi_list, list )
         if ( desc->msi_attrib.type == PCI_CAP_ID_MSIX &&
-             desc->msi_attrib.entry_nr == nr_entry )
+             desc->msi_attrib.entry_nr == nr_entry ) {
+	    pcidev_unlock(entry->pdev);
             return desc;
+	}
+    pcidev_unlock(entry->pdev);
 
     return NULL;
 }

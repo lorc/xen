@@ -106,6 +106,8 @@ struct pci_dev {
     uint8_t msi_maxvec;
     uint8_t phantom_stride;
 
+    /* Device lock */
+    spinlock_t lock;
     nodeid_t node; /* NUMA node */
 
     /* Device to be quarantined, don't automatically re-assign to dom0 */
@@ -234,6 +236,16 @@ struct pirq;
 int msixtbl_pt_register(struct domain *, struct pirq *, uint64_t gtable);
 void msixtbl_pt_unregister(struct domain *, struct pirq *);
 void msixtbl_pt_cleanup(struct domain *d);
+
+static inline void pcidev_lock(struct pci_dev *pdev)
+{
+    spin_lock(&pdev->lock);
+}
+
+static inline void pcidev_unlock(struct pci_dev *pdev)
+{
+    spin_unlock(&pdev->lock);
+}
 
 #ifdef CONFIG_HVM
 int arch_pci_clean_pirqs(struct domain *d);

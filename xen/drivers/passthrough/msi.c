@@ -22,6 +22,7 @@ int pdev_msi_init(struct pci_dev *pdev)
 {
     unsigned int pos;
 
+    pcidev_lock(pdev);
     INIT_LIST_HEAD(&pdev->msi_list);
 
     pos = pci_find_cap_offset(pdev->seg, pdev->bus, PCI_SLOT(pdev->devfn),
@@ -41,7 +42,10 @@ int pdev_msi_init(struct pci_dev *pdev)
         uint16_t ctrl;
 
         if ( !msix )
-            return -ENOMEM;
+        {
+             pcidev_unlock(pdev);
+             return -ENOMEM;
+        }
 
         spin_lock_init(&msix->table_lock);
 
@@ -50,6 +54,8 @@ int pdev_msi_init(struct pci_dev *pdev)
 
         pdev->msix = msix;
     }
+
+    pcidev_unlock(pdev);
 
     return 0;
 }
