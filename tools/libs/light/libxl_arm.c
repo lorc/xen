@@ -993,6 +993,31 @@ static int make_vpci_node(libxl__gc *gc, void *fdt,
     return 0;
 }
 
+static int make_tpm_node(libxl__gc *gc, void *fdt,
+                         const struct arch_info *ainfo,
+                         struct xc_dom_image *dom)
+{
+    int res;
+
+    res = fdt_begin_node(fdt, "tpm_tis");
+    if (res) return res;
+
+    res = fdt_property_compat(gc, fdt, 1, "tcg,tpm-tis-mmio");
+    if (res) return res;
+
+    res = fdt_property_regs(gc, fdt, GUEST_ROOT_ADDRESS_CELLS,
+            GUEST_ROOT_SIZE_CELLS, 1, GUEST_TPM_BASE, GUEST_TPM_SIZE);
+    if (res) return res;
+
+    res = fdt_property_string(fdt, "status", "okay");
+    if (res) return res;
+
+    res = fdt_end_node(fdt);
+    if (res) return res;
+
+    return 0;
+}
+
 static int make_xen_iommu_node(libxl__gc *gc, void *fdt)
 {
     int res;
@@ -1496,6 +1521,9 @@ next_resize:
                                               libxl_defbool_val(virtio->grant_usage)) );
         }
 
+        if (libxl_defbool_val(d_config->b_info.tpm))
+            FDT( make_tpm_node(gc, fdt, ainfo, dom) );
+
         /*
          * The iommu node should be created only once for all virtio-mmio
          * devices.
@@ -1799,6 +1827,7 @@ int libxl__arch_domain_build_info_setdefault(libxl__gc *gc,
 {
     /* ACPI is disabled by default */
     libxl_defbool_setdefault(&b_info->acpi, false);
+    libxl_defbool_setdefault(&b_info->tpm, false);
 
     /* Sanitise SVE parameter */
     if (b_info->arch_arm.sve_vl) {
