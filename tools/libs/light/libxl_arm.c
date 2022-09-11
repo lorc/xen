@@ -1039,6 +1039,9 @@ static int make_virtio_mmio_node_common(libxl__gc *gc, void *fdt, uint64_t base,
     res = fdt_property_interrupts(gc, fdt, &intr, 1);
     if (res) return res;
 
+    res = fdt_property_string(fdt, "status", "okay");
+    if (res) return res;
+
     res = fdt_property(fdt, "dma-coherent", NULL, 0);
     if (res) return res;
 
