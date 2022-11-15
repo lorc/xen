@@ -236,6 +236,19 @@ static int its_send_cmd_inv(struct host_its *its,
     return its_send_command(its, cmd);
 }
 
+static int its_send_cmd_invall(struct host_its *its,
+                               uint32_t collection_id)
+{
+    uint64_t cmd[4];
+
+    cmd[0] = GITS_CMD_INVALL;
+    cmd[1] = 0x00;
+    cmd[2] = collection_id;
+    cmd[3] = 0x00;
+
+    return its_send_command(its, cmd);
+}
+
 /* Set up the (1:1) collection mapping for the given host CPU. */
 int gicv3_its_setup_collection(unsigned int cpu)
 {
@@ -593,7 +606,9 @@ static int gicv3_its_map_host_events(struct host_its *its,
             return ret;
     }
 
-    /* TODO: Consider using INVALL here. Didn't work on the model, though. */
+    ret = its_send_cmd_invall(its, 0);
+    if ( ret )
+        return ret;
 
     ret = its_send_cmd_sync(its, 0);
     if ( ret )
