@@ -139,6 +139,7 @@ int vpci_msix_arch_enable_entry(struct vpci_msix_entry *entry,
     ret = vpci_get_msi_base(pdev, &msi_base);
     if ( ret )
     {
+        iounmap(desc_addr);
         return ret;
     }
 
