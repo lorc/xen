@@ -31,6 +31,8 @@ static keyhandler_fn_t show_handlers, dump_hwdom_registers,
 static irq_keyhandler_fn_t do_toggle_alt_key, dump_registers,
     reboot_machine, run_all_keyhandlers, do_debug_key;
 
+extern keyhandler_fn_t dump_its_state;
+
 static struct keyhandler {
     union {
         keyhandler_fn_t *fn;
@@ -56,6 +58,7 @@ static struct keyhandler {
     IRQ_KEYHANDLER('R', reboot_machine, "reboot machine", 0),
         KEYHANDLER('t', read_clocks, "display multi-cpu clock info", 1),
         KEYHANDLER('0', dump_hwdom_registers, "dump Dom0 registers", 1),
+        KEYHANDLER('i', dump_its_state, "dump ITS state", 1),
     IRQ_KEYHANDLER('%', do_debug_key, "trap to xendbg", 0),
     IRQ_KEYHANDLER('*', run_all_keyhandlers, "print all diagnostics", 0),
 

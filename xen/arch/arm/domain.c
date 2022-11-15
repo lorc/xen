@@ -536,7 +536,7 @@ void dump_pageframe_info(struct domain *d)
 #if defined(CONFIG_NEW_VGIC) && defined(CONFIG_ARM_64)
 #define MAX_PAGES_PER_VCPU  2
 #else
-#define MAX_PAGES_PER_VCPU  1
+#define MAX_PAGES_PER_VCPU  2
 #endif
 
 struct vcpu *alloc_vcpu_struct(const struct domain *d)

@@ -19,6 +19,7 @@
  */
 
 #include <xen/acpi.h>
+#include <xen/console.h>
 #include <xen/lib.h>
 #include <xen/delay.h>
 #include <xen/iocap.h>
@@ -1227,6 +1228,46 @@ int gicv3_its_init(void)
     return 0;
 }
 
+
+void dump_its_state(unsigned char key)
+{
+    struct domain *d;
+    /* We want to get everything out that we possibly can. */
+    watchdog_disable();
+    console_start_sync();
+
+    for_each_domain(d)
+    {
+        struct rb_node *node;
+
+        printk(XENLOG_INFO"ITS for Domain %pd:\n", d);
+        spin_lock(&d->arch.vgic.its_devices_lock);
+        for (node = rb_first( &d->arch.vgic.its_devices); node; node = rb_next(node))
+        {
+            struct its_device *its_dev = rb_entry(node, struct its_device, rbnode);
+            uint32_t idx;
+
+            printk(XENLOG_INFO"  ITS device %d events doorbell %lx host_devid %x guest_devid %x\n",
+                   its_dev->eventids, its_dev->guest_doorbell, its_dev->host_devid, its_dev->guest_devid);
+
+            for (idx = 0; idx < its_dev->eventids; idx ++)
+            {
+                if (its_dev->pend_irqs[idx].irq == 0)
+                    continue;
+
+                printk("    Event %d IRQ %d status %lx count %d\n",
+                       idx, its_dev->pend_irqs[idx].irq,
+                       its_dev->pend_irqs[idx].status,
+                       atomic_read(&its_dev->pend_irqs[idx].lpi_cnt));
+            }
+        }
+        spin_unlock(&d->arch.vgic.its_devices_lock);
+
+    }
+
+    console_end_sync();
+    watchdog_enable();
+}
 
 /*
  * Local variables:

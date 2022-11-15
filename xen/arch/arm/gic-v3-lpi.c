@@ -18,6 +18,7 @@
  * along with this program; If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <xen/cpu.h>
 #include <xen/lib.h>
 #include <xen/mm.h>
 #include <xen/param.h>
@@ -151,6 +152,7 @@ void vgic_vcpu_inject_lpi(struct domain *d, unsigned int virq)
     if ( !p )
         return;
 
+    atomic_inc(&p->lpi_cnt);
     vcpu_id = ACCESS_ONCE(p->lpi_vcpu_id);
     if ( vcpu_id >= d->max_vcpus )
           return;

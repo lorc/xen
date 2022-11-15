@@ -24,6 +24,7 @@
 
 #include <xen/radix-tree.h>
 #include <xen/rbtree.h>
+#include <xen/atomic.h>
 
 struct pending_irq
 {
@@ -84,6 +85,7 @@ struct pending_irq
     uint8_t priority;
     uint8_t lpi_priority;       /* Caches the priority if this is an LPI. */
     uint8_t lpi_vcpu_id;        /* The VCPU for an LPI. */
+    atomic_t lpi_cnt;
     /* inflight is used to append instances of pending_irq to
      * vgic.inflight_irqs */
     struct list_head inflight;
