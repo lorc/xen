@@ -107,7 +107,7 @@
 #include <xen/device_tree.h>
 #include <xen/rbtree.h>
 
-#define HOST_ITS_FLUSH_CMD_QUEUE        (1U << 0)
+#define HOST_ITS_FLUSH_BUFFERS          (1U << 0)
 #define HOST_ITS_USES_PTA               (1U << 1)
 
 /* We allocate LPIs on the hosts in chunks of 32 to reduce handling overhead. */
