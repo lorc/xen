@@ -204,6 +204,8 @@ int iommu_domain_init(struct domain *d, unsigned int opts)
     hd->node = NUMA_NO_NODE;
 #endif
 
+    hd->force_assign_iommu = opts & XEN_DOMCTL_IOMMU_force_iommu;
+
     ret = arch_iommu_domain_init(d);
     if ( ret )
         return ret;
@@ -634,7 +636,7 @@ int iommu_do_domctl(
 #endif
 
 #ifdef CONFIG_HAS_DEVICE_TREE
-    if ( ret == -ENODEV )
+    if ( ret == -ENOSYS )
         ret = iommu_do_dt_domctl(domctl, d, u_domctl);
 #endif
 

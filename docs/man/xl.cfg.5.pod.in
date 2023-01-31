@@ -1715,6 +1715,15 @@ Specifies OS ID.
 
 =back
 
+=over 4
+
+=item B<force_assign_without_iommu=BOOLEAN>
+
+If set, Xen allows to assign a devices even if it is not behind an IOMMU.
+This renders your platform *unsafe* if the device is DMA-capable.
+
+=back
+
 =back
 
 =head2 Paravirtualised (PV) Guest Specific Options

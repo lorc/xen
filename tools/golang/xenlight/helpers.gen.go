@@ -1127,6 +1127,11 @@ if err := x.DmRestrict.fromC(&xc.dm_restrict);err != nil {
 return fmt.Errorf("converting field DmRestrict: %v", err)
 }
 x.Tee = TeeType(xc.tee)
+
+if err := x.ForceAssignWithoutIommu.fromC(&xc.force_assign_without_iommu);err != nil {
+return fmt.Errorf("converting field ForceAssignWithoutIommu: %v", err)
+}
+
 x.Type = DomainType(xc._type)
 switch x.Type{
 case DomainTypeHvm:
