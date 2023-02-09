@@ -618,6 +618,38 @@ out:
     return ret;
 }
 
+static int map_sci_page(libxl__gc *gc, uint32_t domid, uint64_t paddr,
+                         uint64_t guest_addr)
+{
+    int ret;
+    uint64_t _paddr_pfn = paddr >> XC_PAGE_SHIFT;
+    uint64_t _guest_pfn = guest_addr >> XC_PAGE_SHIFT;
+
+    assert(paddr && guest_addr);
+    LOG(DEBUG, "iomem %"PRIx64, _paddr_pfn);
+
+    ret = xc_domain_iomem_permission(CTX->xch, domid, _paddr_pfn, 1, 1);
+    if (ret < 0) {
+        LOG(ERROR,
+              "failed give domain access to iomem page %"PRIx64,
+             _paddr_pfn);
+        return ret;
+    }
+
+    ret = xc_domain_memory_mapping(CTX->xch, domid,
+                                   _guest_pfn, _paddr_pfn,
+                                   1, 1);
+    if (ret < 0) {
+        LOG(ERROR,
+              "failed to map to domain iomem page %"PRIx64
+              " to guest address %"PRIx64,
+              _paddr_pfn, _guest_pfn);
+        return ret;
+    }
+
+    return 0;
+}
+
 int libxl__domain_make(libxl__gc *gc, libxl_domain_config *d_config,
                        libxl__domain_build_state *state,
                        uint32_t *domid, bool soft_reset)
@@ -777,6 +809,16 @@ int libxl__domain_make(libxl__gc *gc, libxl_domain_config *d_config,
      * valid.
      */
     assert(libxl_domid_valid_guest(*domid));
+
+    if (d_config->b_info.arm_sci == LIBXL_ARM_SCI_TYPE_SCMI_SMC) {
+        ret = map_sci_page(gc, *domid, state->arm_sci_agent_paddr,
+                            GUEST_SCI_SHMEM_BASE);
+        if (ret < 0) {
+            LOGED(ERROR, *domid, "map scmi fail");
+            rc = ERROR_FAIL;
+            goto out;
+        }
+    }
 
     dom_path = libxl__xs_get_dompath(gc, *domid);
     if (!dom_path) {
@@ -1973,7 +2015,7 @@ static void libxl__add_dtdevs(libxl__egc *egc, libxl__ao *ao, uint32_t domid,
         LOGD(DEBUG, domid, "Assign device \"%s\" to domain", dtdev->path);
         rc = xc_assign_dt_device(CTX->xch, domid, dtdev->path);
         if (rc < 0) {
-            LOGD(ERROR, domid, "xc_assign_dtdevice failed: %d", rc);
+            LOGD(ERROR, domid, "xc_assign_dt_device failed: %d", rc);
             goto out;
         }
     }
