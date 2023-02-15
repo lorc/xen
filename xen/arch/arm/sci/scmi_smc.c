@@ -383,7 +383,7 @@ static struct scmi_channel *get_channel_by_id(uint8_t chan_id)
 static struct scmi_channel *aquire_scmi_channel(domid_t domain_id)
 {
     struct scmi_channel *curr;
-    bool found = false;
+    struct scmi_channel *ret = NULL;
 
     ASSERT(domain_id != DOMID_INVALID && domain_id >= 0);
 
@@ -393,16 +393,14 @@ static struct scmi_channel *aquire_scmi_channel(domid_t domain_id)
         if ( curr->domain_id == DOMID_INVALID )
         {
             curr->domain_id = domain_id;
-            found = true;
+            ret = curr;
             break;
         }
     }
 
     spin_unlock(&scmi_data.channel_list_lock);
-    if ( found )
-        return curr;
 
-    return NULL;
+    return ret;
 }
 
 static void relinquish_scmi_channel(struct scmi_channel *channel)
