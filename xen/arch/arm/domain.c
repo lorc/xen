@@ -775,14 +775,12 @@ int arch_domain_create(struct domain *d,
         /* At this stage vgic_reserve_virq should never fail */
         if ( !vgic_reserve_virq(d, GUEST_EVTCHN_PPI) )
             BUG();
-    }
-
-    if ( !is_idle_domain(d) && 
-            config->arch.arm_sci_type != XEN_DOMCTL_CONFIG_ARM_SCI_NONE )
-    {
-	if ( (rc = sci_domain_init(d, config->arch.arm_sci_type,
-		&config->arch)) != 0)
-		goto fail;
+        if ( config->arch.arm_sci_type != XEN_DOMCTL_CONFIG_ARM_SCI_NONE )
+        {
+            if ( (rc = sci_domain_init(d, config->arch.arm_sci_type,
+                                        &config->arch)) != 0)
+                goto fail;
+        }
     }
 
     /*
