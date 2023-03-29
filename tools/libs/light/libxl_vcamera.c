@@ -103,6 +103,10 @@ static LIBXL_DEFINE_UPDATE_DEVID(vcamera)
 static LIBXL_DEFINE_DEVICE_FROM_TYPE(vcamera)
 static LIBXL_DEFINE_DEVICES_ADD(vcamera)
 
+LIBXL_DEFINE_DEVID_TO_DEVICE(vcamera)
+LIBXL_DEFINE_DEVICE_ADD(vcamera)
+LIBXL_DEFINE_DEVICE_REMOVE(vcamera)
+
 DEFINE_DEVICE_TYPE_STRUCT(vcamera, VCAMERA, vcameras,
                           .update_config = (device_update_config_fn_t) libxl__update_config_vcamera,
                           .from_xenstore = (device_from_xenstore_fn_t) libxl__vcamera_from_xenstore,

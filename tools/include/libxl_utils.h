@@ -86,6 +86,9 @@ int libxl_devid_to_device_vkb(libxl_ctx *ctx, uint32_t domid,
 int libxl_devid_to_device_vdispl(libxl_ctx *ctx, uint32_t domid,
                                  int devid, libxl_device_vdispl *vdispl);
 
+int libxl_devid_to_device_vcamera(libxl_ctx *ctx, uint32_t domid,
+                                 int devid, libxl_device_vcamera *vcamera);
+
 int libxl_devid_to_device_vsnd(libxl_ctx *ctx, uint32_t domid,
                                int devid, libxl_device_vsnd *vsnd);
 

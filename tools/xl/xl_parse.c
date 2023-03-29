@@ -1507,7 +1507,7 @@ static int parse_vcamera_device(libxl_device_vcamera *vcamera,
     return 0;
 }
 
-static int parse_vcamera_item(libxl_device_vcamera *vcamera, const char *item)
+int parse_vcamera_item(libxl_device_vcamera *vcamera, const char *item)
 {
     libxl_vcamera_format *format = NULL;
     char *buf = NULL, *p, *strtok_ptr = NULL;

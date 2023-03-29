@@ -2414,6 +2414,20 @@ int libxl_device_vdispl_getinfo(libxl_ctx *ctx, uint32_t domid,
                                 libxl_vdisplinfo *vdisplinfo)
                                 LIBXL_EXTERNAL_CALLERS_ONLY;
 
+/* Virtual cameras */
+int libxl_device_vcamera_add(libxl_ctx *ctx, uint32_t domid,
+                            libxl_device_vcamera *vcamera,
+                            const libxl_asyncop_how *ao_how)
+                            LIBXL_EXTERNAL_CALLERS_ONLY;
+int libxl_device_vcamera_remove(libxl_ctx *ctx, uint32_t domid,
+                               libxl_device_vcamera *vcamera,
+                               const libxl_asyncop_how *ao_how)
+                               LIBXL_EXTERNAL_CALLERS_ONLY;
+int libxl_device_vcamera_destroy(libxl_ctx *ctx, uint32_t domid,
+                                libxl_device_vcamera *vdispl,
+                                const libxl_asyncop_how *ao_how)
+                                LIBXL_EXTERNAL_CALLERS_ONLY;
+
 /* Virtual sounds */
 int libxl_device_vsnd_add(libxl_ctx *ctx, uint32_t domid,
                           libxl_device_vsnd *vsnd,
