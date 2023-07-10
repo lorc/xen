@@ -461,6 +461,7 @@ struct domain
 
 #ifdef CONFIG_HAS_PCI
     struct list_head pdev_list;
+    rwlock_t pci_lock;
 #endif
 
 #ifdef CONFIG_HAS_PASSTHROUGH
