@@ -900,6 +900,31 @@ static int cf_check init_bars(struct pci_dev *pdev)
     if ( rc )
         return rc;
 
+    rc = vpci_add_register(pdev->vpci, vpci_hw_read32, NULL, PCI_CLASS_REVISION,
+                           4, NULL);
+    if ( rc )
+        return rc;
+
+    rc = vpci_add_register(pdev->vpci, vpci_hw_read8, NULL, PCI_CACHE_LINE_SIZE,
+                           1, NULL);
+    if ( rc )
+        return rc;
+
+    rc = vpci_add_register(pdev->vpci, vpci_hw_read8, vpci_hw_write8,
+                           PCI_LATENCY_TIMER, 1, NULL);
+    if ( rc )
+        return rc;
+
+    rc = vpci_add_register(pdev->vpci, vpci_hw_read8, NULL, PCI_HEADER_TYPE,
+                           1, NULL);
+    if ( rc )
+        return rc;
+
+    rc = vpci_add_register(pdev->vpci, is_hwdom ? vpci_hw_read8 : vpci_read_val,
+                           is_hwdom ? vpci_hw_write8 : NULL, PCI_BIST, 1, NULL);
+    if ( rc )
+        return rc;
+
     if ( pdev->ignore_bars )
         return 0;
 
