@@ -785,10 +785,12 @@ static int cf_check init_bars(struct pci_dev *pdev)
     int rc;
     bool is_hwdom = is_hardware_domain(pdev->domain);
     bool mask_cap_list = false;
+    uint8_t type;
 
     ASSERT(rw_is_write_locked(&pdev->domain->pci_lock));
 
-    switch ( pci_conf_read8(pdev->sbdf, PCI_HEADER_TYPE) & 0x7f )
+    type = pci_conf_read8(pdev->sbdf, PCI_HEADER_TYPE) & 0x7f;
+    switch ( type )
     {
     case PCI_HEADER_TYPE_NORMAL:
         num_bars = PCI_HEADER_NORMAL_NR_BARS;
@@ -924,6 +926,15 @@ static int cf_check init_bars(struct pci_dev *pdev)
                            is_hwdom ? vpci_hw_write8 : NULL, PCI_BIST, 1, NULL);
     if ( rc )
         return rc;
+
+    if ( type == PCI_HEADER_TYPE_NORMAL )
+    {
+        rc = vpci_add_register(pdev->vpci,
+                               is_hwdom ? vpci_hw_read32 : vpci_read_val, NULL,
+                               PCI_CARDBUS_CIS, 4, NULL);
+        if ( rc )
+            return rc;
+    }
 
     if ( pdev->ignore_bars )
         return 0;
