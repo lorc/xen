@@ -103,7 +103,8 @@ static const struct dt_device_match __initconstrel rcar4_pcie_dt_match[] =
 static int __init pci_host_generic_probe(struct dt_device_node *dev,
                                          const void *data)
 {
-    return pci_host_common_probe(dev, &rcar4_pcie_ops, &rcar4_pcie_child_ops, 0);
+    return PTR_RET(pci_host_common_probe(dev, &rcar4_pcie_ops,
+                   &rcar4_pcie_child_ops, 0));
 }
 
 DT_DEVICE_START(pci_gen, "PCI HOST R-CAR GEN4", DEVICE_PCI_HOSTBRIDGE)
