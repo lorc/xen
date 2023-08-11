@@ -1379,11 +1379,12 @@ static struct gen4_pci_ipmmu_info pci_ipmmu_info[2] = {
     },
 };
 
-static struct gen4_pci_ipmmu_info *get_gen4_pci_ipmmu_info(struct device *dev)
+static struct gen4_pci_ipmmu_info *get_gen4_pci_ipmmu_info(
+    const struct pci_dev *pdev)
 {
-    struct dt_device_node *np;
+    const struct dt_device_node *np;
 
-    np = pci_find_host_bridge_node(dev);
+    np = pci_find_host_bridge_node(pdev);
     if ( !np )
         return NULL;
 
@@ -1483,7 +1484,7 @@ static int ipmmu_add_device(u8 devfn, struct device *dev)
         unsigned int reg_id, osid;
         int ret;
 
-        info = get_gen4_pci_ipmmu_info(dev);
+        info = get_gen4_pci_ipmmu_info(pdev);
         if ( !info )
             return -ENODEV;
 
