@@ -772,6 +772,7 @@ static int cf_check init_bars(struct pci_dev *pdev)
     struct vpci_bar *bars = header->bars;
     int rc;
     bool is_hwdom = is_hardware_domain(pdev->domain);
+    bool mask_cap_list = false;
 
     ASSERT(rw_is_write_locked(&pdev->domain->pci_lock));
 
@@ -795,6 +796,21 @@ static int cf_check init_bars(struct pci_dev *pdev)
     rc = vpci_add_register(pdev->vpci,
                            is_hwdom ? vpci_hw_read16 : guest_cmd_read,
                            cmd_write, PCI_COMMAND, 2, header);
+    if ( rc )
+        return rc;
+
+    /*
+     * Utilize rsvdz_mask to hide PCI_STATUS_CAP_LIST from the guest for now. If
+     * support for rsvdp (reserved & preserved) is added in the future, the
+     * rsvdp mask should be used instead.
+     */
+    rc = vpci_add_register_mask(pdev->vpci, vpci_hw_read16, vpci_hw_write16,
+                                PCI_STATUS, 2, NULL,
+                                PCI_STATUS_RSVDZ_MASK |
+                                    (mask_cap_list ? PCI_STATUS_CAP_LIST : 0),
+                                PCI_STATUS_RO_MASK &
+                                    ~(mask_cap_list ? PCI_STATUS_CAP_LIST : 0),
+                                PCI_STATUS_RW1C_MASK);
     if ( rc )
         return rc;
 
