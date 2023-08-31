@@ -820,7 +820,7 @@ static int cf_check init_bars(struct pci_dev *pdev)
     if ( rc )
         return rc;
 
-    if ( !is_hardware_domain(pdev->domain) )
+    if ( !is_hwdom )
     {
         if ( !(pci_conf_read16(pdev->sbdf, PCI_STATUS) & PCI_STATUS_CAP_LIST) )
         {

@@ -84,7 +84,7 @@ static int vpci_mmio_read_child(struct vcpu *v, mmio_info_t *info,
                              false, &sbdf) )
         return 0;
 
-    return vpci_mmio_read(v, info, r, !bridge, sbdf);
+    return vpci_mmio_read(v, info, r, sbdf);
 }
 
 static int vpci_mmio_write(struct vcpu *v, mmio_info_t *info,
@@ -104,19 +104,20 @@ static int vpci_mmio_write_root(struct vcpu *v, mmio_info_t *info,
                              true, &sbdf) )
         return 0;
 
-    return vpci_mmio_write(v, info, r, !bridge, sbdf);
+    return vpci_mmio_write(v, info, r, sbdf);
 }
 
 static int vpci_mmio_write_child(struct vcpu *v, mmio_info_t *info,
                                 register_t r, void *p)
 {
     struct pci_host_bridge *bridge = p;
+    pci_sbdf_t sbdf;
 
     if ( !vpci_sbdf_from_gpa(v->domain, bridge, info->gpa,
                              false, &sbdf) )
         return 0;
 
-    return vpci_mmio_write(v, info, r, !bridge, sbdf);
+    return vpci_mmio_write(v, info, r, sbdf);
 }
 
 static const struct mmio_handler_ops vpci_mmio_handler = {

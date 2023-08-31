@@ -1131,7 +1131,7 @@ static void ipmmu_free_root_domain(struct ipmmu_vmsa_domain *domain)
     xfree(domain);
 }
 
-static int ipmmu_deassign_device(struct domain *d, u8 devfn, struct device *dev);
+static int ipmmu_deassign_device(struct domain *d, struct device *dev);
 
 static int ipmmu_assign_device(struct domain *d, u8 devfn, struct device *dev,
                                uint32_t flag)
@@ -1175,7 +1175,7 @@ static int ipmmu_assign_device(struct domain *d, u8 devfn, struct device *dev,
              * Try to de-assign: do not return error if it was already
              * de-assigned.
              */
-            ret = ipmmu_deassign_device(old_d, devfn, dev);
+            ret = ipmmu_deassign_device(old_d, dev);
 
             return ret == -ESRCH ? 0 : ret;
         }
