@@ -1687,7 +1687,7 @@ static void domcreate_launch_dm(libxl__egc *egc, libxl__multidev *multidev,
     libxl__domain_create_state *dcs = CONTAINER_OF(multidev, *dcs, multidev);
     STATE_AO_GC(dcs->ao);
     int i;
-    bool dmargs_saved = false;
+    libxl_domid dm_domid_saved = INVALID_DOMID;
 
     /* convenience aliases */
     const uint32_t domid = dcs->guest_domid;
@@ -1784,7 +1784,8 @@ static void domcreate_launch_dm(libxl__egc *egc, libxl__multidev *multidev,
         libxl_device_virtio *virtio = &d_config->virtios[i];
 
         if (virtio->backend_type == LIBXL_VIRTIO_BACKEND_QEMU &&
-            virtio->backend_domid != LIBXL_TOOLSTACK_DOMID && !dmargs_saved) {
+            virtio->backend_domid != LIBXL_TOOLSTACK_DOMID &&
+            dm_domid_saved == INVALID_DOMID) {
 
             ret = libxl__save_qdisk_backend_dm_args(gc, domid,
                                                     virtio->backend_domid,
@@ -1793,10 +1794,18 @@ static void domcreate_launch_dm(libxl__egc *egc, libxl__multidev *multidev,
                 LOGD(ERROR, domid, "Unable to save dm_args for Qdisk backend");
                 goto error_out;
             }
-            dmargs_saved = true;
+            dm_domid_saved = virtio->backend_domid;
         }
 
         libxl__device_add(gc, domid, &libxl__virtio_devtype, virtio);
+    }
+
+    if (dm_domid_saved != INVALID_DOMID) {
+        ret = libxl__wait_for_qdisk_backend_ready(gc, domid, dm_domid_saved);
+        if (ret < 0) {
+            LOGD(ERROR, domid, "Qdisk backend didn't respond in time");
+            goto error_out;
+        }
     }
 
     switch (d_config->c_info.type) {
