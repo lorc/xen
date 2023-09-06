@@ -44,7 +44,7 @@ static int add_virtual_device(struct pci_dev *pdev)
     pci_sbdf_t sbdf = { 0 };
     unsigned long new_dev_number;
 
-    if ( is_hardware_domain(d) )
+    if ( pci_is_hardware_domain(d, pdev->seg, pdev->bus) )
         return 0;
 
     ASSERT(pcidevs_locked() && rw_is_write_locked(&pdev->domain->pci_lock));
