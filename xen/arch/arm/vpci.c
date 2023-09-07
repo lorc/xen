@@ -20,7 +20,7 @@ static bool_t vpci_sbdf_from_gpa(struct domain *d,
                                                          bridge->child_cfg;
         sbdf->sbdf = VPCI_ECAM_BDF(gpa - cfg->phys_addr);
         sbdf->seg = bridge->segment;
-        sbdf->bus += bridge->cfg->busn_start;
+        sbdf->bus += cfg->busn_start;
     }
     else
     {

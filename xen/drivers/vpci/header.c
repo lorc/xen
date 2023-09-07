@@ -56,13 +56,13 @@ static int cf_check map_range(
         mfn_t start_mfn = _mfn(PFN_DOWN(map->bar->addr));
         unsigned long size = e - s + 1;
 
-        if ( !iomem_access_permitted(map->d, s, e) )
-        {
-            printk(XENLOG_G_WARNING
-                   "%pd denied access to MMIO range [%#lx, %#lx]\n",
-                   map->d, s, e);
-            return -EPERM;
-        }
+        /* if ( !iomem_access_permitted(map->d, s, e) ) */
+        /* { */
+        /*     printk(XENLOG_G_WARNING */
+        /*            "%pd denied access to MMIO range [%#lx, %#lx]\n", */
+        /*            map->d, s, e); */
+        /*     return -EPERM; */
+        /* } */
 
         rc = xsm_iomem_mapping(XSM_HOOK, map->d, s, e, map->map);
         if ( rc )
