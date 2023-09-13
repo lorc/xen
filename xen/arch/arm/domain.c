@@ -869,6 +869,12 @@ void arch_domain_creation_finished(struct domain *d)
 {
     ASSERT(!domain_vpci_init(d));
 
+    if ( domain_vgic_late_init(d) )
+    {
+        printk(XENLOG_INFO "Late vGIC initialization failed\n");
+        domain_crash(d);
+    }
+
     /*
      * To avoid flushing the whole guest RAM on the first Set/Way, we
      * invalidate the P2M to track what has been accessed.
