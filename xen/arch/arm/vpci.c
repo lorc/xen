@@ -51,6 +51,8 @@ static int vpci_mmio_read(struct vcpu *v, mmio_info_t *info,
     pci_sbdf_t sbdf;
     /* data is needed to prevent a pointer cast on 32bit */
     unsigned long data;
+    const uint8_t access_size = (1 << info->dabt.size) * 8;
+    const uint64_t access_mask = GENMASK_ULL(access_size - 1, 0);
 
     ASSERT(!bridge == !is_hardware_domain(v->domain));
 
@@ -87,7 +89,7 @@ static int vpci_mmio_read(struct vcpu *v, mmio_info_t *info,
             }
 #endif
 
-            *r = ~0ul;
+            *r = access_mask;
             return rc;
         }
     }
@@ -99,7 +101,7 @@ static int vpci_mmio_read(struct vcpu *v, mmio_info_t *info,
         return 1;
     }
 
-    *r = ~0ul;
+    *r = access_mask;
 
     return 0;
 }
