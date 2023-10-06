@@ -452,21 +452,29 @@ static void __init cf_check ns16550_init_postirq(struct serial_port *port)
             if ( rc > 0 )
             {
                 struct msi_desc *msi_desc = NULL;
+                struct pci_dev *pdev;
 
                 pcidevs_lock();
 
-                rc = pci_enable_msi(&msi, &msi_desc);
-                if ( !rc )
+                pdev = pci_get_pdev(NULL, msi.sbdf);
+                if ( pdev )
                 {
-                    struct irq_desc *desc = irq_to_desc(msi.irq);
-                    unsigned long flags;
+                    rc = pci_enable_msi(pdev, &msi, &msi_desc);
 
-                    spin_lock_irqsave(&desc->lock, flags);
-                    rc = setup_msi_irq(desc, msi_desc);
-                    spin_unlock_irqrestore(&desc->lock, flags);
-                    if ( rc )
-                        pci_disable_msi(msi_desc);
+                    if ( !rc )
+                    {
+                        struct irq_desc *desc = irq_to_desc(msi.irq);
+                        unsigned long flags;
+
+                        spin_lock_irqsave(&desc->lock, flags);
+                        rc = setup_msi_irq(desc, msi_desc);
+                        spin_unlock_irqrestore(&desc->lock, flags);
+                        if ( rc )
+                            pci_disable_msi(msi_desc);
+                    }
                 }
+                else
+                    rc = -ENODEV;
 
                 pcidevs_unlock();
 
