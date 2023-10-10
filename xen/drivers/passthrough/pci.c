@@ -1609,7 +1609,12 @@ int pci_assign_device(struct domain *d, u16 seg, u8 bus, u8 devfn, u32 flag)
     int ret;
 
     pcidevs_lock();
-    ret = assign_device(d, seg, bus, devfn, flag);
+
+    ret = device_assigned(seg, bus, devfn);
+
+    if ( !ret )
+        ret = assign_device(d, seg, bus, devfn, flag);
+
     pcidevs_unlock();
 
     return ret;
