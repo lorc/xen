@@ -3467,50 +3467,64 @@ int libxl__save_dm_virtio_pci_host(libxl__gc *gc,
 
     dir = libxl__xs_directory(gc, XBT_NULL, dm_path, &n);
     if (!dir)
+    {
+        LOG(ERROR, "!dir");
         return ERROR_INVAL;
+    }
 
     dm_path = DEVICE_MODEL_XS_PATH(gc, host->backend_domid, domid, "/virtio_pci_host");
 
     for (;;) {
+        LOG(ERROR, "%s:%d", __func__, __LINE__);
         rc = libxl__xs_transaction_start(gc, &t);
         if (rc) goto out;
 
+        LOG(ERROR, "%s:%d", __func__, __LINE__);
         rc = libxl__xs_write_checked(gc, t, GCSPRINTF("%s/id", dm_path),
                                      GCSPRINTF("%u", host->id));
         if (rc) goto out;
 
+        LOG(ERROR, "%s:%d", __func__, __LINE__);
         rc = libxl__xs_write_checked(gc, t, GCSPRINTF("%s/ecam_base", dm_path),
                                      GCSPRINTF("%#"PRIx64, host->ecam_base));
         if (rc) goto out;
 
+        LOG(ERROR, "%s:%d", __func__, __LINE__);
         rc = libxl__xs_write_checked(gc, t, GCSPRINTF("%s/ecam_size", dm_path),
                                      GCSPRINTF("%#"PRIx64, host->ecam_size));
         if (rc) goto out;
 
+        LOG(ERROR, "%s:%d", __func__, __LINE__);
         rc = libxl__xs_write_checked(gc, t, GCSPRINTF("%s/mem_base", dm_path),
                                      GCSPRINTF("%#"PRIx64, host->mem_base));
         if (rc) goto out;
 
+        LOG(ERROR, "%s:%d", __func__, __LINE__);
         rc = libxl__xs_write_checked(gc, t, GCSPRINTF("%s/mem_size", dm_path),
                                      GCSPRINTF("%#"PRIx64, host->mem_size));
         if (rc) goto out;
 
+        LOG(ERROR, "%s:%d", __func__, __LINE__);
         rc = libxl__xs_write_checked(gc, t, GCSPRINTF("%s/prefetch_mem_base", dm_path),
                                      GCSPRINTF("%#"PRIx64, host->prefetch_mem_base));
         if (rc) goto out;
 
+        LOG(ERROR, "%s:%d", __func__, __LINE__);
         rc = libxl__xs_write_checked(gc, t, GCSPRINTF("%s/prefetch_mem_size", dm_path),
                                      GCSPRINTF("%#"PRIx64, host->prefetch_mem_size));
         if (rc) goto out;
 
+        LOG(ERROR, "%s:%d", __func__, __LINE__);
         rc = libxl__xs_write_checked(gc, t, GCSPRINTF("%s/irq_first", dm_path),
                                      GCSPRINTF("%u", host->irq_first));
         if (rc) goto out;
 
+        LOG(ERROR, "%s:%d", __func__, __LINE__);
         rc = libxl__xs_write_checked(gc, t, GCSPRINTF("%s/num_irqs", dm_path),
                                      GCSPRINTF("%u", host->num_irqs));
         if (rc) goto out;
 
+        LOG(ERROR, "%s:%d", __func__, __LINE__);
         rc = libxl__xs_transaction_commit(gc, &t);
         if (!rc) break;
         if (rc < 0) goto out;
@@ -3520,6 +3534,7 @@ int libxl__save_dm_virtio_pci_host(libxl__gc *gc,
 
 out:
     libxl__xs_transaction_abort(gc, &t);
+    LOG(ERROR, "%s:%d rc = %d", __func__, __LINE__, rc);
     return rc;
 }
 
