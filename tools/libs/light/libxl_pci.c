@@ -1509,6 +1509,8 @@ out_no_irq:
         if (pci->vdevfn)
             vsbdf = pci->vdevfn;
 
+        LOGD(DEBUG, domainid, "pci->vdevfn = %x Try vSBDF %x", pci->vdevfn, vsbdf);
+
         r = xc_assign_device(ctx->xch, domid, pci_encode_bdf(pci), &vsbdf, flag);
         if (r < 0 && (hvm || errno != ENOSYS)) {
             LOGED(ERROR, domainid, "xc_assign_device failed");

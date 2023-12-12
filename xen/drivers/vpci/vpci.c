@@ -58,6 +58,8 @@ static int add_virtual_device(struct pci_dev *pdev, pci_sbdf_t *vsbdf)
         return -EOPNOTSUPP;
     }
 
+    printk("vpci vSBDF req: %pp\n", vsbdf);
+
     if ( !vsbdf || vsbdf->sbdf == XEN_DOMCTL_DEV_SDBF_ANY )
     {
         new_dev_number = find_first_zero_bit(d->vpci_dev_assigned_map,
@@ -84,6 +86,8 @@ static int add_virtual_device(struct pci_dev *pdev, pci_sbdf_t *vsbdf)
             return -EOPNOTSUPP;
         }
     }
+
+    printk("vpci vSBDF resp: %pp\n", vsbdf);
 
     __set_bit(new_dev_number, &d->vpci_dev_assigned_map);
     /*

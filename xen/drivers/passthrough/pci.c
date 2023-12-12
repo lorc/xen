@@ -1771,6 +1771,7 @@ int iommu_do_pci_domctl(
 
         machine_sbdf = domctl->u.assign_device.u.pci.machine_sbdf;
         virtual_sbdf.sbdf = domctl->u.assign_device.u.pci.virtual_sbdf;
+        printk("vSBDF req: %pp\n", &virtual_sbdf);
 
         ret = xsm_assign_device(XSM_HOOK, d, machine_sbdf);
         if ( ret )
@@ -1799,6 +1800,7 @@ int iommu_do_pci_domctl(
                                                 "h", u_domctl);
 
         domctl->u.assign_device.u.pci.virtual_sbdf = virtual_sbdf.sbdf;
+        printk("vSBDF resp: %pp\n", &virtual_sbdf);
         break;
 
     case XEN_DOMCTL_deassign_device:

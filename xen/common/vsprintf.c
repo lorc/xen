@@ -294,6 +294,9 @@ static char *print_vcpu(char *str, const char *end, const struct vcpu *v)
 
 static char *print_pci_addr(char *str, const char *end, const pci_sbdf_t *sbdf)
 {
+    if ( unlikely(!sbdf) )
+        return string(str, end, "(NULL)", -1, -1, 0);
+
     str = number(str, end, sbdf->seg, 16, 4, -1, ZEROPAD);
     if ( str < end )
         *str = ':';
