@@ -37,7 +37,7 @@ extern vpci_register_init_t *const __end_vpci_array[];
 #define NUM_VPCI_INIT (__end_vpci_array - __start_vpci_array)
 
 #ifdef CONFIG_HAS_VPCI_GUEST_SUPPORT
-static int add_virtual_device(struct pci_dev *pdev)
+static int add_virtual_device(struct pci_dev *pdev, pci_sbdf_t *vsbdf)
 {
     struct domain *d = pdev->domain;
     unsigned int new_dev_number;
@@ -57,13 +57,35 @@ static int add_virtual_device(struct pci_dev *pdev)
                  &pdev->sbdf);
         return -EOPNOTSUPP;
     }
-    new_dev_number = find_first_zero_bit(d->vpci_dev_assigned_map,
-                                         VPCI_MAX_VIRT_DEV);
-    if ( new_dev_number == VPCI_MAX_VIRT_DEV )
-        return -ENOSPC;
+
+    if ( !vsbdf || vsbdf->sbdf == XEN_DOMCTL_DEV_SDBF_ANY )
+    {
+        new_dev_number = find_first_zero_bit(d->vpci_dev_assigned_map,
+                                             VPCI_MAX_VIRT_DEV);
+        if ( new_dev_number == VPCI_MAX_VIRT_DEV )
+            return -ENOSPC;
+
+        if ( vsbdf )
+            *vsbdf = PCI_SBDF(0, 0, new_dev_number, 0);
+    }
+    else
+    {
+        if ( vsbdf->seg != 0 || vsbdf->bus != 0 || vsbdf->fn != 0 )
+        {
+            gdprintk(XENLOG_ERR,
+                     "vSBDF %pp: segment, bus and function should be 0\n",
+                     vsbdf);
+            return -EOPNOTSUPP;
+        }
+        new_dev_number = vsbdf->dev;
+        if ( test_bit(new_dev_number, &d->vpci_dev_assigned_map) )
+        {
+            gdprintk(XENLOG_ERR, "vSBDF %pp already assigned\n", vsbdf);
+            return -EOPNOTSUPP;
+        }
+    }
 
     __set_bit(new_dev_number, &d->vpci_dev_assigned_map);
-
     /*
      * Both segment and bus number are 0:
      *  - we emulate a single host bridge for the guest, e.g. segment 0
@@ -148,7 +170,7 @@ void vpci_deassign_device(struct pci_dev *pdev)
     pdev->vpci = NULL;
 }
 
-int vpci_assign_device(struct pci_dev *pdev)
+int vpci_assign_device(struct pci_dev *pdev, pci_sbdf_t *vsbdf)
 {
     unsigned int i;
     const unsigned long *ro_map;
@@ -176,7 +198,7 @@ int vpci_assign_device(struct pci_dev *pdev)
 
 #ifdef CONFIG_HAS_VPCI_GUEST_SUPPORT
     pdev->vpci->guest_sbdf.sbdf = ~0;
-    rc = add_virtual_device(pdev);
+    rc = add_virtual_device(pdev, vsbdf);
     if ( rc )
         goto out;
 #endif
