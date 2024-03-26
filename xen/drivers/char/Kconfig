@@ -68,6 +68,14 @@ config HAS_SCIF
 	  This selects the SuperH SCI(F) UART. If you have a SuperH based board,
 	  or Renesas R-Car Gen 2/3 based board say Y.
 
+config HAS_QCOM_UART
+	bool "Qualcomm GENI UART driver"
+	default y
+	depends on ARM
+	help
+	  This selects the Qualcomm GENI-based UART driver. If you
+	  have a Qualcomm-based board board say Y here.
+
 config HAS_EHCI
 	bool
 	depends on X86

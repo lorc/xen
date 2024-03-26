@@ -122,6 +122,19 @@ choice
 			This option is preferred over the platform specific
 			options; the platform specific options are deprecated
 			and will soon be removed.
+	config EARLY_UART_CHOICE_QCOM
+		select EARLY_UART_QCOM
+		bool "Early printk via Qualcomm debug UART"
+		help
+			Say Y here if you wish the early printk to direct their
+			output to a Qualcomm debug UART. You can use this option to
+			provide the parameters for the debug UART rather than
+			selecting one of the platform specific options below if
+			you know the parameters for the port.
+
+			This option is preferred over the platform specific
+			options; the platform specific options are deprecated
+			and will soon be removed.
 
 	config EARLY_PRINTK_BRCM
 		bool "Early printk with 8250 on Broadcom 7445D0 boards with A15 processors"
@@ -211,6 +224,9 @@ config EARLY_UART_PL011
 config EARLY_UART_SCIF
 	select EARLY_PRINTK
 	bool
+config EARLY_UART_QCOM
+	select EARLY_PRINTK
+	bool
 
 config EARLY_PRINTK
 	bool
@@ -261,7 +277,7 @@ config EARLY_UART_PL011_MMIO32
 	  will be done using 32-bit only accessors.
 
 config EARLY_UART_INIT
-	depends on EARLY_UART_PL011 && EARLY_UART_PL011_BAUD_RATE != 0
+	depends on (EARLY_UART_PL011 && EARLY_UART_PL011_BAUD_RATE != 0) || EARLY_UART_QCOM
 	def_bool y
 
 config EARLY_UART_8250_REG_SHIFT
@@ -308,3 +324,4 @@ config EARLY_PRINTK_INC
 	default "debug-mvebu.inc" if EARLY_UART_MVEBU
 	default "debug-pl011.inc" if EARLY_UART_PL011
 	default "debug-scif.inc" if EARLY_UART_SCIF
+	default "debug-qcom.inc" if EARLY_UART_QCOM
