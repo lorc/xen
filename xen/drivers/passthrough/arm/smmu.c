@@ -2550,7 +2550,7 @@ static int arm_smmu_device_dt_probe(struct platform_device *pdev)
 	parse_driver_options(smmu);
 
 	if (smmu->version > ARM_SMMU_V1 &&
-	    smmu->num_context_banks != smmu->num_context_irqs) {
+	    smmu->num_context_banks > smmu->num_context_irqs) {
 		dev_err(dev,
 			"found only %d context interrupt(s) but %d required\n",
 			smmu->num_context_irqs, smmu->num_context_banks);
