@@ -50,6 +50,7 @@
 #define SE_GENI_S_IRQ_EN                0x644
 #define   S_RX_FIFO_LAST_EN             BIT(27, U)
 #define   S_RX_FIFO_WATERMARK_EN        BIT(26, U)
+#define   S_RX_FIFO_WR_ERR_EN           BIT(25, U)
 #define   S_CMD_ABORT_EN                BIT(5, U)
 #define   S_CMD_DONE_EN                 BIT(0, U)
 #define SE_GENI_S_IRQ_CLEAR             0x648
@@ -126,7 +127,11 @@ static void qcom_uart_interrupt(int irq, void *data, struct cpu_user_regs *regs)
     writel(s_irq_status, uart->regs + SE_GENI_S_IRQ_CLEAR);
 
     if ( s_irq_status & (S_RX_FIFO_WATERMARK_EN | S_RX_FIFO_LAST_EN) )
-        serial_rx_interrupt(port, regs);
+        while ( readl(uart->regs + SE_GENI_RX_FIFO_STATUS) )
+            serial_rx_interrupt(port, regs);
+
+    if ( s_irq_status & (S_RX_FIFO_WR_ERR_EN) )
+        printk("RX Overrun detected\n");
 }
 
 static void __init qcom_uart_init_postirq(struct serial_port *port)
