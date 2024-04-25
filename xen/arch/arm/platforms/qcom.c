@@ -20,6 +20,7 @@
 
 #include <asm/platform.h>
 #include <public/arch-arm/smccc.h>
+#include <asm/setup.h>
 #include <asm/smccc.h>
 
 #define SCM_SMC_FNID(s, c)	((((s) & 0xFF) << 8) | ((c) & 0xFF))
@@ -62,9 +63,66 @@ static bool sa8155p_smc(struct cpu_user_regs *regs)
     }
 }
 
+
+static int sa8155p_specific_mapping(struct domain *d)
+{
+    const struct dt_device_node *node;
+    const __be32 *val;
+    u32 len;
+    const struct dt_device_match pdc_dt_int_ctrl_match[] =
+    {
+        DT_MATCH_COMPATIBLE("qcom,pdc"),
+        { /*sentinel*/ },
+    };
+
+    /* Map PDC interrupts to Dom0 */
+    node = dt_find_interrupt_controller(pdc_dt_int_ctrl_match);
+    if ( !node )
+        return 0;
+
+    if ( dt_device_for_passthrough(node) )
+        return 0;
+
+    val = dt_get_property(node, "qcom,pdc-ranges", &len);
+    if ( !val )
+    {
+        printk(XENLOG_G_ERR"Can't find 'qcom,pdc-ranges' property for PDC\n");
+        return -EINVAL;
+    }
+
+    if ( len % (3 * sizeof(u32)) )
+    {
+        printk(XENLOG_G_ERR"Invalid number of entries for 'qcom,pdc-ranges'\n");
+        return -EINVAL;
+    }
+
+    for ( ; len > 0; len -= 3 * sizeof(u32) )
+    {
+        u32 spi, count, i;
+        int ret;
+
+        /* Skip pin base */
+        val++;
+
+        spi = __be32_to_cpup(val++);
+        count = __be32_to_cpup(val++);
+
+        for ( i = 0; i < count; i++, spi++)
+        {
+            ret = map_irq_to_domain(d, spi + 32, true, "qcom,pdc");
+            if ( ret )
+                printk(XENLOG_G_ERR"failed to map PDC SPI %d to guest\n", spi);
+            return ret;
+        }
+    }
+
+    return 0;
+}
+
 PLATFORM_START(sa8155p, "Qualcomm SA8155P")
     .compatible = sa8155p_dt_compat,
-    .smc = sa8155p_smc
+    .smc = sa8155p_smc,
+    .specific_mapping = sa8155p_specific_mapping
 PLATFORM_END
 
 /*
