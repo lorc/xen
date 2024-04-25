@@ -262,6 +262,10 @@ int libxl__domain_build_info_setdefault(libxl__gc *gc,
         if (b_info->iomem[i].gfn == LIBXL_INVALID_GFN)
             b_info->iomem[i].gfn = b_info->iomem[i].start;
 
+    for (i = 0 ; i < b_info->num_resvmem; i++)
+        if (b_info->resvmem[i].gfn == LIBXL_INVALID_GFN)
+            b_info->resvmem[i].gfn = b_info->resvmem[i].start;
+
     if (!b_info->event_channels)
         b_info->event_channels = 1023;
 
@@ -1746,6 +1750,63 @@ static void domcreate_launch_dm(libxl__egc *egc, libxl__multidev *multidev,
             ret = ERROR_FAIL;
             goto error_out;
         }
+    }
+
+    for (i = 0; i < d_config->b_info.num_resvmem; i++) {
+        libxl_iomem_range *io = &d_config->b_info.resvmem[i];
+        xen_ulong_t *idxs = calloc(io->number, sizeof(xen_ulong_t));
+        xen_pfn_t *gpfns = calloc(io->number, sizeof(xen_pfn_t));
+        int *errs = calloc(io->number, sizeof(int));
+        int k;
+
+        if (!idxs || !gpfns || !errs) {
+            LOGD(ERROR, domid, "Can't allocate memory for indexes/gpfns/errs");
+            free(idxs);
+            free(gpfns);
+            free(errs);
+            ret = ERROR_FAIL;
+            goto error_out;
+        }
+
+        LOGD(DEBUG, domid, "resvmem %"PRIx64"-%"PRIx64,
+             io->start, io->start + io->number - 1);
+
+        ret = xc_domain_iomem_permission(CTX->xch, domid,
+                                          io->start, io->number, 1);
+        if (ret < 0) {
+            LOGED(ERROR, domid,
+                  "failed give domain access to iomem range %"PRIx64"-%"PRIx64,
+                  io->start, io->start + io->number - 1);
+            ret = ERROR_FAIL;
+            free(idxs);
+            free(gpfns);
+            free(errs);
+            goto error_out;
+        }
+
+        for (k = 0; k < io->number; k++) {
+            idxs[k] = io->start + k;
+            gpfns[k] = io->gfn + k;
+        };
+        ret = xc_domain_add_to_physmap_batch(CTX->xch, domid,
+                                             0, /* TODO: Set correct foreign domid */
+                                             XENMAPSPACE_dev_mmio,
+                                             io->number,
+                                             idxs, gpfns, errs);
+        if (ret < 0) {
+            LOGED(ERROR, domid,
+                  "failed to map to domain reserved range %"PRIx64"-%"PRIx64
+                  " to guest address %"PRIx64,
+                  io->start, io->start + io->number - 1, io->gfn);
+            ret = ERROR_FAIL;
+            free(idxs);
+            free(gpfns);
+            free(errs);
+            goto error_out;
+        }
+        free(idxs);
+        free(gpfns);
+        free(errs);
     }
 
     /* For both HVM and PV the 0th console is a regular console. We
