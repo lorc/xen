@@ -69,6 +69,7 @@ static int sa8155p_specific_mapping(struct domain *d)
     const struct dt_device_node *node;
     const __be32 *val;
     u32 len;
+    bool own_device;
     const struct dt_device_match pdc_dt_int_ctrl_match[] =
     {
         DT_MATCH_COMPATIBLE("qcom,pdc"),
@@ -80,8 +81,7 @@ static int sa8155p_specific_mapping(struct domain *d)
     if ( !node )
         return 0;
 
-    if ( dt_device_for_passthrough(node) )
-        return 0;
+    own_device = !dt_device_for_passthrough(node);
 
     val = dt_get_property(node, "qcom,pdc-ranges", &len);
     if ( !val )
@@ -101,6 +101,9 @@ static int sa8155p_specific_mapping(struct domain *d)
         u32 spi, count, i;
         int ret;
 
+        printk("<%d, %d, %d>\n",__be32_to_cpup(val),
+               __be32_to_cpup(val+1),
+               __be32_to_cpup(val+2));
         /* Skip pin base */
         val++;
 
@@ -109,10 +112,12 @@ static int sa8155p_specific_mapping(struct domain *d)
 
         for ( i = 0; i < count; i++, spi++)
         {
-            ret = map_irq_to_domain(d, spi + 32, true, "qcom,pdc");
-            if ( ret )
+            /* irq_set_spi_type(spi + 32, IRQ_TYPE_EDGE_FALLING); */
+            ret = map_irq_to_domain(d, spi + 32, own_device, "qcom,pdc");
+            if ( ret ) {
                 printk(XENLOG_G_ERR"failed to map PDC SPI %d to guest\n", spi);
-            return ret;
+                return ret;
+            }
         }
     }
 
