@@ -443,12 +443,12 @@ typedef uint64_t xen_callback_t;
 #define GUEST_GICC_SIZE   xen_mk_ullong(0x00002000)
 
 /* vGIC v3 mappings */
-#define GUEST_GICV3_GICD_BASE      xen_mk_ullong(0x03001000)
+#define GUEST_GICV3_GICD_BASE      xen_mk_ullong(0x100000000)
 #define GUEST_GICV3_GICD_SIZE      xen_mk_ullong(0x00010000)
 
 #define GUEST_GICV3_RDIST_REGIONS  1
 
-#define GUEST_GICV3_GICR0_BASE     xen_mk_ullong(0x03020000) /* vCPU0..127 */
+#define GUEST_GICV3_GICR0_BASE     xen_mk_ullong(0x110000000) /* vCPU0..127 */
 #define GUEST_GICV3_GICR0_SIZE     xen_mk_ullong(0x01000000)
 
 /*
@@ -510,8 +510,8 @@ typedef uint64_t xen_callback_t;
  * address space) relies on the fact that the regions reserved for the RAM
  * below are big enough to also accommodate such regions.
  */
-#define GUEST_RAM0_BASE   xen_mk_ullong(0x40000000) /* 2GB of low RAM @ 1GB */
-#define GUEST_RAM0_SIZE   xen_mk_ullong(0x80000000)
+#define GUEST_RAM0_BASE   xen_mk_ullong(0xA0000000) /* 2GB of low RAM @ 1GB */
+#define GUEST_RAM0_SIZE   xen_mk_ullong(0x60000000)
 
 /* 4GB @ 4GB Prefetch Memory for VPCI */
 #define GUEST_VPCI_ADDR_TYPE_PREFETCH_MEM   xen_mk_ullong(0x42000000)
