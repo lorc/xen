@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
+#include <xen/access_controller.h>
 #include <xen/device_tree.h>
 #include <xen/err.h>
 #include <xen/event.h>
@@ -13,6 +14,7 @@
 #include <asm/arm64/sve.h>
 #include <asm/dom0less-build.h>
 #include <asm/domain_build.h>
+#include <asm/sci/sci.h>
 #include <asm/static-memory.h>
 #include <asm/static-shmem.h>
 #include <asm/tee/tee.h>
@@ -400,6 +402,10 @@ static int __init handle_passthrough_prop(struct kernel_info *kinfo,
         return res;
 
     res = iommu_add_dt_device(node);
+    if ( res < 0 )
+        return res;
+
+    res = ac_assign_dt_device(node, kinfo->d);
     if ( res < 0 )
         return res;
 
@@ -834,6 +840,10 @@ static int __init construct_domU(struct domain *d,
     }
     else if ( rc == 0 && !strcmp(dom0less_enhanced, "no-xenstore") )
         kinfo.dom0less_feature = DOM0LESS_ENHANCED_NO_XS;
+
+    rc = sci_domain_init(d, sci_get_type(), NULL);
+    if ( rc < 0 )
+        return rc;
 
 #ifdef CONFIG_TEE
     rc = dt_property_read_string(node, "xen,tee", &tee);
