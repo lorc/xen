@@ -59,6 +59,7 @@
 #define SCMI_SMC_ID                        "arm,smc-id"
 #define SCMI_SHARED_MEMORY                 "arm,scmi-shmem"
 #define SCMI_SHMEM                         "shmem"
+#define SCMI_SECONDARY_AGENTS              "epam,secondary-agents"
 #define SCMI_SHMEM_MAPPED_SIZE             PAGE_SIZE
 
 #define HYP_CHANNEL                          0x0
@@ -96,14 +97,7 @@ struct scmi_shared_mem {
     uint8_t msg_payload[];
 };
 
-struct dt_channel_addr {
-    u64 addr;
-    u64 size;
-    struct list_head list;
-};
-
 struct scmi_channel {
-    int chan_id;
     int agent_id;
     uint32_t func_id;
     domid_t domain_id;
@@ -226,7 +220,7 @@ static int send_smc_message(struct scmi_channel *chan_info,
         return -EINVAL;
     }
 
-    printk(XENLOG_DEBUG "scmi: status =%d len=%d\n",
+    printk(XENLOG_DEBUG "scmi: status=%d len=%d\n",
            chan_info->shmem->channel_status, len);
     printk(XENLOG_DEBUG "scmi: header id = %d type = %d, proto = %d\n",
            hdr->id, hdr->type, hdr->protocol);
@@ -246,8 +240,7 @@ static int send_smc_message(struct scmi_channel *chan_info,
     if ( len > 0 && data )
         __memcpy_toio((void *)(chan_info->shmem->msg_payload), data, len);
 
-    arm_smccc_smc(chan_info->func_id, 0, 0, 0, 0, 0, 0, chan_info->chan_id,
-                  &resp);
+    arm_smccc_smc(chan_info->func_id, 0, 0, 0, 0, 0, 0, 0, &resp);
 
     printk(XENLOG_DEBUG "scmi: scmccc_smc response %d\n", (int)(resp.a0));
 
@@ -297,7 +290,7 @@ static int get_smc_response(struct scmi_channel *chan_info,
     int recv_len;
     int ret;
 
-    printk(XENLOG_DEBUG "scmi: get smc responce msgid %d\n", hdr->id);
+    printk(XENLOG_DEBUG "scmi: get smc response msgid %d\n", hdr->id);
 
     if ( len >= SCMI_SHMEM_MAPPED_SIZE - sizeof(chan_info->shmem) )
     {
@@ -342,7 +335,7 @@ static int do_smc_xfer(struct scmi_channel *channel, scmi_msg_header_t *hdr, voi
 {
     int ret = 0;
 
-    ASSERT( channel && channel->shmem);
+    ASSERT(channel && channel->shmem);
 
     if ( !hdr )
         return -EINVAL;
@@ -360,7 +353,7 @@ clean:
     return ret;
 }
 
-static struct scmi_channel *get_channel_by_id(uint8_t chan_id)
+static struct scmi_channel *get_channel_by_id(uint8_t agent_id)
 {
     struct scmi_channel *curr;
     bool found = false;
@@ -368,7 +361,7 @@ static struct scmi_channel *get_channel_by_id(uint8_t chan_id)
     spin_lock(&scmi_data.channel_list_lock);
     list_for_each_entry(curr, &scmi_data.channel_list, list)
     {
-        if ( curr->chan_id == chan_id )
+        if ( curr->agent_id == agent_id )
         {
             found = true;
             break;
@@ -417,12 +410,14 @@ static void relinquish_scmi_channel(struct scmi_channel *channel)
 static int map_channel_memory(struct scmi_channel *channel)
 {
     ASSERT( channel && channel->paddr );
-    channel->shmem = ioremap_cache(channel->paddr, SCMI_SHMEM_MAPPED_SIZE);
+    channel->shmem = ioremap_nocache(channel->paddr, SCMI_SHMEM_MAPPED_SIZE);
     if ( !channel->shmem )
         return -ENOMEM;
 
     channel->shmem->channel_status = SCMI_SHMEM_CHAN_STAT_CHANNEL_FREE;
-    printk(XENLOG_DEBUG "scmi: Got shmem after vmap %p\n", channel->shmem);
+    printk(XENLOG_DEBUG "scmi: Got shmem %lx after vmap %p\n", channel->paddr,
+           channel->shmem);
+
     return 0;
 }
 
@@ -433,12 +428,12 @@ static void unmap_channel_memory(struct scmi_channel *channel)
     channel->shmem = NULL;
 }
 
-static struct scmi_channel *smc_create_channel(uint8_t chan_id,
+static struct scmi_channel *smc_create_channel(uint8_t agent_id,
                                                uint32_t func_id, uint64_t addr)
 {
     struct scmi_channel *channel;
 
-    channel = get_channel_by_id(chan_id);
+    channel = get_channel_by_id(agent_id);
     if ( channel )
         return ERR_PTR(EEXIST);
 
@@ -446,7 +441,7 @@ static struct scmi_channel *smc_create_channel(uint8_t chan_id,
     if ( !channel )
         return ERR_PTR(ENOMEM);
 
-    channel->chan_id = chan_id;
+    channel->agent_id = agent_id;
     channel->func_id = func_id;
     channel->domain_id = DOMID_INVALID;
     channel->shmem = NULL;
@@ -526,40 +521,6 @@ static struct dt_device_node *get_dt_node_from_property(
     return dt_find_node_by_phandle(be32_to_cpup(prop));
 }
 
-static int get_shmem_regions(struct list_head *head, u64 hyp_addr)
-{
-    struct dt_device_node *node;
-    int ret;
-    struct dt_channel_addr *lchan;
-    u64 laddr, lsize;
-
-    node = dt_find_compatible_node(NULL, NULL, SCMI_SHARED_MEMORY);
-    if ( !node )
-        return -ENOENT;
-
-    while ( node )
-    {
-        ret = dt_device_get_address(node, 0, &laddr, &lsize);
-        if ( ret )
-            return ret;
-
-        if ( laddr != hyp_addr )
-        {
-            lchan = xmalloc(struct dt_channel_addr);
-            if ( !lchan )
-                return -ENOMEM;
-            lchan->addr = laddr;
-            lchan->size = lsize;
-
-            list_add_tail(&lchan->list, head);
-        }
-
-        node = dt_find_compatible_node(node, NULL, SCMI_SHARED_MEMORY);
-    }
-
-    return 0;
-}
-
 static int read_hyp_channel_addr(struct dt_device_node *scmi_node,
                                  u64 *addr, u64 *size)
 {
@@ -576,15 +537,64 @@ static int read_hyp_channel_addr(struct dt_device_node *scmi_node,
     return dt_device_get_address(shmem_node, 0, addr, size);
 }
 
-static void free_shmem_regions(struct list_head *addr_list)
+static __init int collect_agents(struct dt_device_node *scmi_node)
 {
-    struct dt_channel_addr *curr, *_curr;
+    const __be32 *prop;
+    u32 len, i;
 
-    list_for_each_entry_safe (curr, _curr, addr_list, list)
+    prop = dt_get_property(scmi_node, SCMI_SECONDARY_AGENTS, &len);
+    if ( !prop )
     {
-        list_del(&curr->list);
-        xfree(curr);
+        printk(XENLOG_WARNING"scmi: No %s property found\n",
+               SCMI_SECONDARY_AGENTS);
+        return -ENODEV;
     }
+
+    if ( len % (3 * sizeof(u32)) )
+    {
+        printk(XENLOG_ERR"scmi: Invalid length of %s property: %d\n",
+               SCMI_SECONDARY_AGENTS, len);
+        return -EINVAL;
+    }
+
+    for ( i = 0 ; i < len / (3 * sizeof(u32)) ; i++ )
+    {
+        u32 agent_id = be32_to_cpu(*prop++);
+        u32 smc_id = be32_to_cpu(*prop++);
+        u32 shmem_phandle = be32_to_cpu(*prop++);
+        struct dt_device_node *node = dt_find_node_by_phandle(shmem_phandle);
+        u64 addr, size;
+        int ret;
+
+        if ( !node )
+        {
+            printk(XENLOG_ERR"scmi: Could not find shmem node for agent %d\n",
+                   agent_id);
+            return -EINVAL;
+        }
+
+        ret = dt_device_get_address(node, 0, &addr, &size);
+        if ( ret )
+        {
+            printk(XENLOG_ERR
+                   "scmi: Could not read shmem address for agent %d: %d",
+                   agent_id, ret);
+            return ret;
+        }
+
+        ret = PTR_RET(smc_create_channel(agent_id, smc_id, addr));
+        if ( ret )
+        {
+            printk(XENLOG_ERR "scmi: Could not create channel for agent %d: %d",
+                   agent_id, ret);
+            return ret;
+        }
+
+        printk(XENLOG_DEBUG"scmi: Agent %d SMC %X addr %lx\n", agent_id,
+               smc_id, addr);
+    }
+
+    return 0;
 }
 
 static int scmi_assign_device(struct dt_device_node *dev,
@@ -621,9 +631,6 @@ static __init bool scmi_probe(struct dt_device_node *scmi_node)
         int32_t status;
         uint32_t attributes;
     } rx;
-    struct dt_channel_addr *entry;
-    struct list_head addr_list;
-
     uint32_t func_id;
 
     ASSERT(scmi_node != NULL);
@@ -647,12 +654,6 @@ static __init bool scmi_probe(struct dt_device_node *scmi_node)
         return false;
     }
 
-    INIT_LIST_HEAD(&addr_list);
-
-    ret = get_shmem_regions(&addr_list, addr);
-    if ( IS_ERR_VALUE(ret) )
-        goto out;
-
     channel = smc_create_channel(HYP_CHANNEL, func_id, addr);
     if ( IS_ERR(channel) )
         goto out;
@@ -669,6 +670,7 @@ static __init bool scmi_probe(struct dt_device_node *scmi_node)
     hdr.type = 0;
     hdr.protocol = SCMI_BASE_PROTOCOL;
 
+    printk("%s:%d\n",__func__,  __LINE__);
     ret = do_smc_xfer(channel, &hdr, NULL, 0, &rx, sizeof(rx));
     if ( ret )
         goto error;
@@ -680,8 +682,13 @@ static __init bool scmi_probe(struct dt_device_node *scmi_node)
     n_agents = FIELD_GET(MSG_N_AGENTS_MASK, rx.attributes);
     printk(XENLOG_DEBUG "scmi: Got agent count %d\n", n_agents);
 
+    ret = collect_agents(scmi_node);
+    if ( ret )
+        goto error;
+
     i = 1;
-    list_for_each_entry(entry, &addr_list, list)
+
+    list_for_each_entry(agent_channel, &scmi_data.channel_list, list)
     {
         uint32_t tx_agent_id = 0xFFFFFFFF;
         struct {
@@ -689,14 +696,6 @@ static __init bool scmi_probe(struct dt_device_node *scmi_node)
             uint32_t agent_id;
             char name[16];
         } da_rx;
-
-        agent_channel = smc_create_channel(i, func_id,
-                                           entry->addr);
-        if ( IS_ERR(agent_channel) )
-        {
-            ret = PTR_ERR(agent_channel);
-            goto error;
-        }
 
         ret = map_channel_memory(agent_channel);
         if ( ret )
@@ -706,15 +705,14 @@ static __init bool scmi_probe(struct dt_device_node *scmi_node)
         hdr.type = 0;
         hdr.protocol = SCMI_BASE_PROTOCOL;
 
+        tx_agent_id = agent_channel->agent_id;
+
         ret = do_smc_xfer(agent_channel, &hdr, &tx_agent_id,
                           sizeof(tx_agent_id), &da_rx, sizeof(da_rx));
-        if ( ret )
-        {
+        if ( agent_channel->domain_id != DOMID_XEN )
             unmap_channel_memory(agent_channel);
+        if ( ret )
             goto error;
-        }
-
-        unmap_channel_memory(agent_channel);
 
         ret = check_scmi_status(da_rx.status);
         if ( ret )
@@ -742,7 +740,6 @@ error:
     unmap_channel_memory(channel);
     free_channel_list();
 out:
-    free_shmem_regions(&addr_list);
     return ret == 0;
 }
 
@@ -768,7 +765,7 @@ static int scmi_domain_init(struct domain *d,
 #else
     printk(XENLOG_INFO
            "scmi: Aquire SCMI channel id = 0x%x , domain_id = %d paddr = 0x%lx\n",
-           channel->chan_id, channel->domain_id, channel->paddr);
+           channel->agent_id, channel->domain_id, channel->paddr);
 #endif
 
     if ( is_hardware_domain(d) )
@@ -934,8 +931,7 @@ static bool scmi_handle_call(struct domain *d, void *args)
         goto unlock;
     }
 
-    arm_smccc_smc(agent_channel->func_id, 0, 0, 0, 0, 0, 0,
-                  agent_channel->chan_id, &resp);
+    arm_smccc_smc(agent_channel->func_id, 0, 0, 0, 0, 0, 0, 0, &resp);
 
     set_user_reg(regs, 0, resp.a0);
     set_user_reg(regs, 1, resp.a1);
