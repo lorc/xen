@@ -67,51 +67,12 @@ int sci_relinquish_resources(struct domain *d)
     return cur_mediator->ops->relinquish_resources(d);
 }
 
-
-int sci_add_dt_device(struct domain *d, struct dt_device_node *dev)
-{
-    if ( !cur_mediator )
-        return 0;
-
-    return cur_mediator->ops->add_dt_device(d, dev);
-}
-
 uint16_t sci_get_type(void)
 {
     if ( !cur_mediator )
         return XEN_DOMCTL_CONFIG_ARM_SCI_NONE;
 
     return cur_mediator->sci_type;
-}
-
-int sci_do_domctl(
-    struct xen_domctl *domctl, struct domain *d,
-    XEN_GUEST_HANDLE_PARAM(xen_domctl_t) u_domctl)
-{
-    int rc = -EINVAL;
-    struct dt_device_node *dev;
-
-    switch ( domctl->cmd )
-    {
-    case XEN_DOMCTL_assign_device:
-        if ( domctl->u.assign_device.dev != XEN_DOMCTL_DEV_DT )
-            break;
-
-        rc = dt_find_node_by_gpath(domctl->u.assign_device.u.dt.path,
-                               domctl->u.assign_device.u.dt.size,
-                               &dev);
-        if ( rc )
-            return rc;
-
-        rc = sci_add_dt_device(d, dev);
-
-        break;
-    default:
-        rc = -ENOSYS;
-        break;
-    }
-
-    return rc;
 }
 
 static int __init sci_init(void)

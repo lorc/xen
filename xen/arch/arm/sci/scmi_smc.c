@@ -20,6 +20,7 @@
 #include <asm/sci/sci.h>
 #include <asm/smccc.h>
 #include <asm/io.h>
+#include <xen/access_controller.h>
 #include <xen/bitops.h>
 #include <xen/config.h>
 #include <xen/sched.h>
@@ -121,6 +122,7 @@ struct scmi_data {
 
 static struct scmi_data scmi_data;
 
+static int scmi_add_device_by_devid(struct domain *d, uint32_t scmi_devid);
 
 /*
  * pack_scmi_header() - packs and returns 32-bit header
@@ -585,6 +587,29 @@ static void free_shmem_regions(struct list_head *addr_list)
     }
 }
 
+static int scmi_assign_device(struct dt_device_node *dev,
+                              struct dt_phandle_args *ac_spec,
+                              struct domain *d)
+{
+    uint32_t dev_id = ac_spec->args[0];
+
+    return scmi_add_device_by_devid(d, dev_id);
+}
+
+static int scmi_deassign_device(struct dt_device_node *dev,
+                                struct dt_phandle_args *ac_spec,
+                                struct domain *d)
+{
+    return 0;
+}
+
+
+static struct ac_ops scmi_ac_ops =
+{
+    .assign_device = scmi_assign_device,
+    .deassign_device = scmi_deassign_device,
+};
+
 static __init bool scmi_probe(struct dt_device_node *scmi_node)
 {
     u64 addr, size;
@@ -706,6 +731,10 @@ static __init bool scmi_probe(struct dt_device_node *scmi_node)
         i++;
     }
 
+    ret = ac_register_access_controller(scmi_node, &scmi_ac_ops);
+    if ( ret )
+        goto error;
+
     scmi_data.initialized = true;
     goto out;
 
@@ -823,21 +852,6 @@ static int scmi_add_device_by_devid(struct domain *d, uint32_t scmi_devid)
     return 0;
 }
 
-static int scmi_add_dt_device(struct domain *d, struct dt_device_node *dev)
-{
-    uint32_t scmi_devid;
-
-    if ( (!scmi_data.initialized) || (!d->arch.sci) )
-        return 0;
-
-    if ( !dt_property_read_u32(dev, "scmi_devid", &scmi_devid) )
-        return 0;
-
-    printk(XENLOG_INFO "scmi: dt_node = %s\n", dt_node_full_name(dev));
-
-    return scmi_add_device_by_devid(d, scmi_devid);
-}
-
 static int scmi_relinquish_resources(struct domain *d)
 {
     int ret;
@@ -945,7 +959,6 @@ static const struct sci_mediator_ops scmi_ops =
     .probe = scmi_probe,
     .domain_init = scmi_domain_init,
     .domain_destroy = scmi_domain_destroy,
-    .add_dt_device = scmi_add_dt_device,
     .relinquish_resources = scmi_relinquish_resources,
     .handle_call = scmi_handle_call,
 };
