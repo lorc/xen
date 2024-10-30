@@ -2675,6 +2675,7 @@ static int arm_smmu_assign_dev(struct domain *d, u8 devfn,
 
 			if ( devfn != pdev->devfn || pdev->domain == d )
 				return 0;
+		}
 
 		ASSERT(pcidevs_locked());
 
