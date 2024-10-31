@@ -318,7 +318,13 @@ unsigned int domain_vpci_get_num_mmio_handlers(struct domain *d)
         return 0;
     }
     if ( ret )
+    {
+        if (is_hardware_domain(d)) {
+            /* Take into account MSI-X hole for every possible device on all bridges */
+            ret += PCI_BDF(ret, 0, 0);
+        }
         return ret;
+    }
 
     if ( is_control_domain(d) )
         count = 0;
