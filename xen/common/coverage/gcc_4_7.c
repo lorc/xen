@@ -43,6 +43,10 @@
 #define GCOV_UNIT_SIZE 4
 #endif
 
+#if defined(CONFIG_CONDITION_COVERAGE) && (GCC_VERSION < 140100)
+#error "GCC 14.1 or never is required to generate conditional coverage data"
+#endif
+
 static struct gcov_info *gcov_info_head;
 
 /**

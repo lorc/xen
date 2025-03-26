@@ -138,6 +138,9 @@ ifeq ($(CONFIG_CC_IS_CLANG),y)
     COV_FLAGS := -fprofile-instr-generate -fcoverage-mapping
 else
     COV_FLAGS := -fprofile-arcs -ftest-coverage
+ifeq ($(CONFIG_CONDITION_COVERAGE),y)
+    COV_FLAGS += -fcondition-coverage
+endif
 endif
 
 # Reset COV_FLAGS in cases where an objects has another one as prerequisite
